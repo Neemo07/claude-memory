@@ -68,6 +68,16 @@ Normalisation allowed in golden comparison only:
 
 Anything else must match exactly.
 
+### 2.1 Intentional deviations found while porting
+
+Recorded here so a reviewer can tell a bug from a decision.
+
+1. `Budget` raised-to-floor warning: the reference prints to stderr from inside `Budget`. `Core` must not touch the console, so `Budget.RaisedToFloor` exposes the condition and the CLI host prints the same message (Phase 5).
+2. `parse_ts`: only the ISO spellings the app and Claude transcripts produce are accepted (extended date/time, optional fraction, `Z` or `±HH:MM`, basic `yyyyMMdd`). Python's `datetime.fromisoformat` additionally accepts ISO week dates and sub-minute times; those still return null here.
+3. `parse_ts` keeps the original UTC offset, as the reference does, instead of normalising to UTC.
+4. `fmt_cwd` normalises separators only. Python's `Path()` also collapses `.` components; a transcript `cwd` never contains them.
+5. `discover` sorts files whose timestamp cannot be read as `DateTime.MinValue`; the reference would raise `OSError`.
+
 ## 3. Dependencies
 
 | Package | Exact version | Justification |
@@ -104,7 +114,7 @@ Rollback: delete `src/`, `tests/`, `tools/`, `Directory.Build.props`, `.editorco
 
 ### Phase 1 — Core model, parsing, discovery, selection
 
-Scope: `Model/*`, `Text/TextUtil.cs`, `TimeWindow.cs`, `Parsing/JsonlSessionParser.cs`, `SessionDiscovery.cs`, `SessionSelector.cs`.
+Scope: `Model/*` (Turn, Session, MemoryOptions, Budget), `Text/TextUtil.cs`, `Text/TimeWindow.cs`, `Parsing/JsonlSessionParser.cs`, `Parsing/ToolBrief.cs`, `Parsing/PyJson.cs`, `SessionDiscovery.cs`, `SessionSelector.cs`.
 
 Work:
 

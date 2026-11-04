@@ -8,6 +8,8 @@ internal static class TestPaths
 
     public static string Fixtures => Path.Combine(RepoRoot, "tests", "fixtures");
 
+    public static string FixtureRoot => Path.Combine(Fixtures, "fixture_root");
+
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
