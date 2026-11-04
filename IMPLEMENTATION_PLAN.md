@@ -368,6 +368,14 @@ A `Close file` toolbar button (next to `Open MD...`, enabled only while a file i
 
 Verified: 2 new tests (close from a bare file returns to the empty state; close over an existing generated output returns to its source view). Suite: 209 Core + 163 App + 98 Cli = 470 passed, build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished.
 
+### Post-plan fix — white tooltip over the dark theme (reported by the human, 2026-11-05)
+
+Symptom: hovering the shared-link box (and any other tooltiped control) showed the default Windows tooltip as a glaring white bar over the dark UI.
+
+Fix: an implicit dark `ToolTip` style in `App.xaml` — panel background, line border with a 4 px corner radius, text/UiFont, drop shadow — with an explicit ControlTemplate so the look does not depend on theme-internal resources. Tooltip texts unchanged.
+
+Verified: build 0 warnings/0 errors, 470 tests passed, both `dist` folders republished. Visual check is manual (human): hover the shared-link box and confirm the tooltip is dark and readable.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.
