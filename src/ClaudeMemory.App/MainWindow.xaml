@@ -236,6 +236,28 @@
                                         Command="{Binding OpenFolderCommand}"
                                         AutomationProperties.Name="Open output folder" />
                             </Grid>
+
+                            <!-- Windows integration (PRD FR-20..FR-24): explicit action only. -->
+                            <TextBlock Style="{StaticResource SectionHeader}" Margin="0,16,0,6"
+                                       Text="Windows integration" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,2"
+                                       Text="{Binding AssociationStatus}"
+                                       AutomationProperties.Name="Association status" />
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="Set as default for Markdown"
+                                        Command="{Binding RegisterAssociationCommand}"
+                                        AutomationProperties.Name="Set as default for Markdown" />
+                                <Button Grid.Column="2" Content="Remove"
+                                        Command="{Binding RemoveAssociationCommand}"
+                                        AutomationProperties.Name="Remove association" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="Windows only lets the user confirm a default app. claude-memory registers itself and then opens the Windows picker; it never changes the choice silently." />
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>

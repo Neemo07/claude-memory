@@ -85,13 +85,20 @@ public sealed class MainViewModel : ObservableObject
     private bool _previewIsFile;
     private bool _previewHostAvailable = true;
 
+    // Windows integration
+    private readonly IAssociationService _association;
+    private AssociationState _associationState;
+    private string _associationStatus = "";
+    private string? _pendingShellPath;
+
     public MainViewModel(
         IBuildPipeline? pipeline = null,
         ISessionScanner? scanner = null,
         IFileDialogService? dialogs = null,
         IClipboardService? clipboard = null,
         IShellService? shell = null,
-        Func<DateTimeOffset>? now = null)
+        Func<DateTimeOffset>? now = null,
+        IAssociationService? association = null)
     {
         _pipeline = pipeline ?? new BuildPipeline();
         _scanner = scanner ?? new SessionScanner();
@@ -99,6 +106,10 @@ public sealed class MainViewModel : ObservableObject
         _clipboard = clipboard ?? new ClipboardService();
         _shell = shell ?? new ShellService();
         _now = now ?? (() => DateTimeOffset.UtcNow);
+        _association = association ?? new AssociationService(
+            new RegistryStore(),
+            Environment.ProcessPath
+            ?? Path.Combine(AppContext.BaseDirectory, "ClaudeMemory.exe"));
 
         Sessions.CollectionChanged += OnSessionsChanged;
 
@@ -113,6 +124,10 @@ public sealed class MainViewModel : ObservableObject
         ScanCommand = new AsyncRelayCommand(ScanAsync, () => !IsBusy);
         PreviewCommand = new RelayCommand(TogglePreview, () => !IsBusy);
         OpenMarkdownCommand = new RelayCommand(OpenMarkdownFile, () => !IsBusy);
+        RegisterAssociationCommand = new RelayCommand(RegisterAssociation, () => !IsBusy);
+        RemoveAssociationCommand = new RelayCommand(RemoveAssociation, () => !IsBusy);
+
+        RefreshAssociation();
     }
 
     public ObservableCollection<SessionRow> Sessions { get; } = new();
@@ -140,6 +155,12 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>Picks a local Markdown file and shows it in the preview.</summary>
     public ICommand OpenMarkdownCommand { get; }
+
+    /// <summary>Registers the per-user Markdown association, then asks Windows to confirm.</summary>
+    public ICommand RegisterAssociationCommand { get; }
+
+    /// <summary>Removes only the registry entries this app created (PRD FR-22).</summary>
+    public ICommand RemoveAssociationCommand { get; }
 
     public MemorySource Source
     {
@@ -415,6 +436,109 @@ public sealed class MainViewModel : ObservableObject
         + "Install it from https://developer.microsoft.com/microsoft-edge/webview2/ and "
         + "restart claude-memory. The source view still works.";
 
+    /// <summary>True when this copy owns the per-user Markdown association (PRD FR-22).</summary>
+    public bool AssociationRegistered => _associationState == AssociationState.Registered;
+
+    /// <summary>One line describing the current registration, shown under the buttons.</summary>
+    public string AssociationStatus => _associationStatus;
+
+    /// <summary>Re-reads the registry and refreshes the two properties above.</summary>
+    public void RefreshAssociation()
+    {
+        AssociationState state;
+        try
+        {
+            state = _association.State;
+        }
+        catch (Exception error) when (IsRegistryFailure(error))
+        {
+            state = AssociationState.NotRegistered;
+        }
+
+        _associationState = state;
+        _associationStatus = state switch
+        {
+            AssociationState.Registered =>
+                "Markdown files can open here - Windows still asks you to confirm the default app.",
+            AssociationState.RegisteredForAnotherCopy =>
+                "registered for another copy of claude-memory - press Set as default to point it here.",
+            _ => "not registered - Markdown files open in whatever app Windows already uses.",
+        };
+
+        Raise(nameof(AssociationRegistered));
+        Raise(nameof(AssociationStatus));
+    }
+
+    /// <summary>Registers, then opens Windows' confirmation surface (PRD FR-21).</summary>
+    private void RegisterAssociation()
+    {
+        try
+        {
+            _association.Register();
+            RefreshAssociation();
+            SetStatus("registered - Windows asks you to confirm the default app", StatusKind.Ok);
+        }
+        catch (Exception error) when (IsRegistryFailure(error))
+        {
+            // PRD §9.22: a policy or permission refusal leaves the app fully usable.
+            SetStatus(
+                "cannot register: " + error.Message
+                + ". Windows may need you to choose the app manually.",
+                StatusKind.Error);
+            return;
+        }
+
+        try
+        {
+            _association.ShowWindowsConfirmation();
+        }
+        catch (Exception error)
+        {
+            SetStatus(
+                "registered - open Windows Default Apps to confirm it (" + error.Message + ")",
+                StatusKind.Warn);
+        }
+    }
+
+    /// <summary>Removes only the app's own keys and values (PRD FR-22).</summary>
+    private void RemoveAssociation()
+    {
+        try
+        {
+            _association.Unregister();
+            RefreshAssociation();
+            SetStatus("association removed", StatusKind.Ok);
+        }
+        catch (Exception error) when (IsRegistryFailure(error))
+        {
+            SetStatus("cannot remove the association: " + error.Message, StatusKind.Error);
+        }
+    }
+
+    private static bool IsRegistryFailure(Exception error)
+        => error is UnauthorizedAccessException or System.Security.SecurityException
+            or IOException or InvalidOperationException;
+
+    /// <summary>
+    /// Opens the file a second launch or Explorer handed us. While a build runs the path waits,
+    /// so a Generate cannot drop the preview the user just asked for (PRD §9.24).
+    /// </summary>
+    public void OpenFromShell(string path)
+    {
+        if (IsBusy)
+        {
+            _pendingShellPath = path;
+            SetStatus("queued " + Path.GetFileName(path) + " until the current run finishes",
+                StatusKind.Info);
+            return;
+        }
+
+        OpenMarkdownPath(path);
+    }
+
+    /// <summary>Reports an unusable command-line argument (PRD §9.25).</summary>
+    public void ReportStartupMessage(string message) => SetStatus(message, StatusKind.Warn);
+
     /// <summary>Short hint under the Kind selector (gui.py:445-454).</summary>
     public string ModeHint => Mode switch
     {
@@ -482,6 +606,11 @@ public sealed class MainViewModel : ObservableObject
             IsBusy = false;
             cancellation.Dispose();
             _cancellation = null;
+
+            // A file handed over while this run was busy is opened now (PRD §9.24).
+            var queued = _pendingShellPath;
+            _pendingShellPath = null;
+            if (queued is not null) OpenMarkdownPath(queued);
         }
     }
 
@@ -820,5 +949,7 @@ public sealed class MainViewModel : ObservableObject
         (BrowseShareFileCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (PreviewCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (OpenMarkdownCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RegisterAssociationCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RemoveAssociationCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 }

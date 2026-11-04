@@ -90,6 +90,7 @@ Recorded here so a reviewer can tell a bug from a decision.
 12. The desktop number fields fall back on unparseable input like `as_int` (gui.py:895), but only accept a leading sign around decimal digits. Python's `int()` also accepts underscores, surrounding whitespace and non-ASCII digits; an `<input type="number">` cannot produce those, so the UI never reaches the difference.
 13. The preview renders with Markdig + WebView2 instead of the reference's hand-written parser and DOM builder (`markdown_preview.py`, gui.py:499-639). Three visible differences follow from having no page base URL and from PRD §8: a relative link target (`./other.md`, `other.md`, `/root.md`) is refused and shown as literal `[label](target)` where `_safe_href` (markdown_preview.py:267-272) left a scheme-less href in place; images become their alt text instead of `<img>`; an unsafe link's literal text is the flattened label, so inner emphasis is dropped. Everything the reference did render (headings, lists, task lists, quotes, tables, code, rules, strikethrough, autolinks, `dir="rtl"`) still renders.
 14. WebView2 requires a browser profile folder, so the app creates `%LOCALAPPDATA%\claude-memory\webview2` on first preview. The reference's WebKit view had no such state. This is the only write outside the paths listed in AGENTS.md, and it holds no transcript content.
+15. `SHOpenWithDialog` needs a real file, so pressing "Set as default for Markdown" writes `preview-sample.md` (three fixed lines, no transcript text) to `%TEMP%\claude-memory\` and hands that path to Windows. The reference had no association feature at all, so there is no parity target.
 
 ## 3. Dependencies
 
@@ -263,7 +264,7 @@ Gate: security tests green; manual preview verified; no scripts in generated HTM
 
 ### Phase 8 — File association, single instance, command-line open
 
-Scope: `Services/ShellIntegration.cs`, `SingleInstance.cs`, `App.xaml.cs`, `MainWindow` startup routing.
+Scope: `Core/Abstractions/IRegistryStore.cs`, `Services/RegistryStore.cs`, `Services/ShellIntegration.cs`, `Services/SingleInstance.cs`, `Services/StartupRouting.cs`, `App.xaml.cs`, `MainWindow`, `MainViewModel` association section.
 
 Work:
 
@@ -274,6 +275,8 @@ Work:
 - Startup: no args → normal window; one valid `.md` path → preview; invalid path/dir → message.
 
 Tests: in-memory registry store asserts exact keys/values written and removed; path quoting in the command value; unregister leaves foreign values; mutex/pipe forward test (loopback pipe name); startup argument routing unit tests.
+
+Recorded on this machine: `dotnet build src/ClaudeMemory.sln -c Release` reports 0 warnings and 0 errors; `dotnet test` reports 209 Core + 138 App + 98 Cli = 445 passed, 0 failed. The registry contract is proven against `InMemoryRegistryStore`: quoted `command`, `OpenWithProgids` for `.md`/`.markdown`, `Applications\<exe>`, `Capabilities`, `RegisteredApplications`; unregister removes those and leaves a foreign `OpenWithProgids` value, the foreign `Applications\other.exe` entry, the `.md` extension key, and its default value untouched; every touched path stays under `Software\Classes`, `Software\ClaudeMemory`, or `Software\RegisteredApplications`. Single-instance tests use a per-test loopback pipe name. Windows first-launch checks executed: the Release build started with a `.md` argument, stayed up for 7 s, wrote no `claude-memory-error.log`, and closed with exit code 0; a second launch with a `.md` argument exited 0 within 10 s while the first window stayed alive, which is the real named-mutex and named-pipe hand-off. Nothing was written to the real `HKCU` during verification, and no Windows picker was opened.
 
 Manual checks (human): real HKCU registration, Explorer "Open with", Default Apps confirmation, double-click `.md`, second launch while running.
 

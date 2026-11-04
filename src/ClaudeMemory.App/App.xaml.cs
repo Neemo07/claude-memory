@@ -2,15 +2,22 @@
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
+using ClaudeMemory.App.Services;
 
 namespace ClaudeMemory.App;
 
 /// <summary>
-/// Application entry point. Fatal errors are written to <c>claude-memory-error.log</c> beside
-/// the executable and shown in a dialog (PRD §6, §8: no transcript content is logged).
+/// Application entry point. Owns the single-instance gate and the command-line route, and keeps
+/// fatal errors in <c>claude-memory-error.log</c> beside the executable (PRD §6, §8: no transcript
+/// content is logged).
 /// </summary>
 public partial class App : Application
 {
+    private const string InstanceName = "claude-memory";
+
+    private SingleInstance? _instance;
+    private MainWindow? _window;
+
     /// <summary>Crash log path, next to the executable (PRD §6).</summary>
     public static string ErrorLogPath
         => Path.Combine(AppContext.BaseDirectory, "claude-memory-error.log");
@@ -25,13 +32,47 @@ public partial class App : Application
 
         try
         {
-            new MainWindow().Show();
+            var route = StartupRouting.Parse(e.Args);
+            _instance = new SingleInstance(InstanceName);
+
+            if (!_instance.IsFirstInstance)
+            {
+                // PRD FR-23: hand the path to the running window and leave.
+                if (route.Action == StartupAction.OpenFile) _instance.TrySend(route.Path);
+                Shutdown(0);
+                return;
+            }
+
+            _instance.StartListening(OnSecondLaunch);
+
+            var window = new MainWindow();
+            _window = window;
+            MainWindow = window;
+            window.Show();
+
+            if (route.Action == StartupAction.OpenFile) window.OpenFromShell(route.Path);
+            else if (route.Message is not null) window.ShowStartupMessage(route.Message);
         }
         catch (Exception error)
         {
             Report(error, fatal: true);
             Shutdown(1);
         }
+    }
+
+    /// <summary>Called on the listener thread; the window must be touched on the UI thread.</summary>
+    private void OnSecondLaunch(string path)
+        => Dispatcher.BeginInvoke(() =>
+        {
+            if (_window is not null) _window.OpenFromShell(path);
+        });
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _instance?.Dispose();
+        _instance = null;
+        _window = null;
+        base.OnExit(e);
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

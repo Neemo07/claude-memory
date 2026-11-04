@@ -14,14 +14,16 @@ public sealed class MainViewModelTests
         FakeSessionScanner? scanner = null,
         FakeFileDialogService? dialogs = null,
         FakeClipboardService? clipboard = null,
-        FakeShellService? shell = null)
+        FakeShellService? shell = null,
+        FakeAssociationService? association = null)
         => new(
             pipeline ?? new FakeBuildPipeline(),
             scanner ?? new FakeSessionScanner(),
             dialogs ?? new FakeFileDialogService(),
             clipboard ?? new FakeClipboardService(),
             shell ?? new FakeShellService(),
-            () => FixedNow);
+            () => FixedNow,
+            association ?? new FakeAssociationService());
 
     private static FakeBuildPipeline PipelineReturning(string text)
         => new()
@@ -668,6 +670,175 @@ public sealed class MainViewModelTests
 
         Assert.Contains("<h1>Second</h1>", model.PreviewHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("<h1>First</h1>", model.PreviewHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Startup_reports_that_this_copy_owns_the_association()
+    {
+        var association = new FakeAssociationService { State = AssociationState.Registered };
+        var model = NewModel(association: association);
+
+        Assert.True(model.AssociationRegistered);
+        Assert.Contains(
+            "Windows still asks you to confirm", model.AssociationStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Startup_reports_another_copy_without_claiming_it()
+    {
+        var association = new FakeAssociationService
+        {
+            State = AssociationState.RegisteredForAnotherCopy,
+        };
+        var model = NewModel(association: association);
+
+        Assert.False(model.AssociationRegistered);
+        Assert.Contains("another copy", model.AssociationStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Startup_reports_an_unregistered_app()
+    {
+        var model = NewModel(association: new FakeAssociationService());
+
+        Assert.False(model.AssociationRegistered);
+        Assert.StartsWith("not registered", model.AssociationStatus);
+    }
+
+    [Fact]
+    public void Setting_the_default_registers_and_opens_the_windows_confirmation()
+    {
+        var association = new FakeAssociationService();
+        var model = NewModel(association: association);
+
+        model.RegisterAssociationCommand.Execute(null);
+
+        Assert.Equal(1, association.RegisterCalls);
+        Assert.Equal(1, association.ConfirmationCalls);
+        Assert.True(model.AssociationRegistered);
+        Assert.Equal("registered - Windows asks you to confirm the default app", model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+    }
+
+    [Fact]
+    public void A_refused_registration_is_reported_and_the_app_stays_usable()
+    {
+        var association = new FakeAssociationService
+        {
+            RegisterError = new UnauthorizedAccessException("access denied"),
+        };
+        var model = NewModel(association: association);
+
+        model.RegisterAssociationCommand.Execute(null);
+
+        Assert.False(model.AssociationRegistered);
+        Assert.Equal(0, association.ConfirmationCalls);
+        Assert.Equal(
+            "cannot register: access denied. Windows may need you to choose the app manually.",
+            model.StatusMessage);
+        Assert.Equal(StatusKind.Error, model.StatusKind);
+        Assert.True(model.GenerateCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void A_failing_confirmation_keeps_the_registration_and_warns()
+    {
+        var association = new FakeAssociationService
+        {
+            ConfirmationError = new InvalidOperationException("no picker"),
+        };
+        var model = NewModel(association: association);
+
+        model.RegisterAssociationCommand.Execute(null);
+
+        Assert.True(model.AssociationRegistered);
+        Assert.Contains("open Windows Default Apps", model.StatusMessage, StringComparison.Ordinal);
+        Assert.Equal(StatusKind.Warn, model.StatusKind);
+    }
+
+    [Fact]
+    public void Removing_the_association_reports_it()
+    {
+        var association = new FakeAssociationService { State = AssociationState.Registered };
+        var model = NewModel(association: association);
+
+        model.RemoveAssociationCommand.Execute(null);
+
+        Assert.Equal(1, association.UnregisterCalls);
+        Assert.False(model.AssociationRegistered);
+        Assert.Equal("association removed", model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+    }
+
+    [Fact]
+    public void A_refused_removal_is_reported()
+    {
+        var association = new FakeAssociationService
+        {
+            State = AssociationState.Registered,
+            UnregisterError = new UnauthorizedAccessException("access denied"),
+        };
+        var model = NewModel(association: association);
+
+        model.RemoveAssociationCommand.Execute(null);
+
+        Assert.Equal("cannot remove the association: access denied", model.StatusMessage);
+        Assert.Equal(StatusKind.Error, model.StatusKind);
+    }
+
+    [Fact]
+    public void A_file_handed_over_by_explorer_opens_in_the_preview()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Hello\n");
+        var model = NewModel();
+
+        model.OpenFromShell(path);
+
+        Assert.True(model.PreviewVisible);
+        Assert.True(model.PreviewIsFile);
+        Assert.Equal("README.md", model.PreviewFileName);
+        Assert.Contains("<h1>Hello</h1>", model.PreviewHtml, StringComparison.Ordinal);
+        Assert.Equal("reading README.md", model.StatusMessage);
+    }
+
+    [Fact]
+    public async Task A_file_sent_during_a_run_opens_after_the_run_finishes()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "queued.md");
+        File.WriteAllText(path, "# Queued\n");
+
+        var gate = new TaskCompletionSource<BuildResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var model = NewModel(new FakeBuildPipeline { Handler = (_, _) => gate.Task });
+
+        var run = model.GenerateAsync();
+        Assert.True(model.IsBusy);
+
+        model.OpenFromShell(path);
+
+        Assert.False(model.PreviewVisible);
+        Assert.Equal("queued queued.md until the current run finishes", model.StatusMessage);
+
+        gate.SetResult(new BuildResult { Text = "# Built\n", Stats = "stats", SessionCount = 1 });
+        await run;
+
+        Assert.True(model.PreviewVisible);
+        Assert.True(model.PreviewIsFile);
+        Assert.Contains("<h1>Queued</h1>", model.PreviewHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_bad_command_line_argument_is_reported_as_a_warning()
+    {
+        var model = NewModel();
+
+        model.ReportStartupMessage("cannot open \"x.md\": no such file");
+
+        Assert.Equal("cannot open \"x.md\": no such file", model.StatusMessage);
+        Assert.Equal(StatusKind.Warn, model.StatusKind);
     }
 
     private static SessionRow Row(string file, string when) => new()

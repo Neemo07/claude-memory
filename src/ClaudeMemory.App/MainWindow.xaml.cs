@@ -39,6 +39,30 @@ public partial class MainWindow : Window
     private void OnClosing(object? sender, CancelEventArgs e) => _model.Cancel();
 
     /// <summary>
+    /// Opens a file handed over by Explorer or a second launch, bringing the window forward
+    /// first (PRD FR-23).
+    /// </summary>
+    public void OpenFromShell(string path)
+    {
+        Restore();
+        _model.OpenFromShell(path);
+    }
+
+    /// <summary>Reports an unusable command-line argument without blocking the window.</summary>
+    public void ShowStartupMessage(string message)
+    {
+        Restore();
+        _model.ReportStartupMessage(message);
+    }
+
+    private void Restore()
+    {
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Show();
+        Activate();
+    }
+
+    /// <summary>
     /// Starts WebView2 with navigation locked to the generated document (PRD §8). A missing
     /// runtime or an initialization failure leaves the source view usable and reports the
     /// install instructions in the status line instead (PRD §9.26).
