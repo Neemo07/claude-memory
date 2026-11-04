@@ -62,6 +62,7 @@ Secondary: the same user on another machine, using the published build without P
 
 - **FR-14 Share URL:** accept `https://claude.ai/share/<uuid>` or a bare UUID. Reject other hosts.
 - **FR-15 Fetch:** GET the public `chat_snapshots` endpoint with the browser UA; retry 403/429/500/502/503/504 with 2 s / 5 s / 12 s backoff; report HTTP 404 as "not found or no longer public".
+- **FR-15a Transport (post-plan addition, 2026-11-05):** the default GET goes through the Windows in-box `curl.exe` (present since Windows 10 1803; falls back to `HttpClient` where absent). The reference's urllib/OpenSSL TLS handshake passes claude.ai's edge, while the .NET/SChannel handshake gets a 403 Cloudflare block page before the endpoint is reached — same URL, same headers, same machine. curl is asked for no Windows revocation probe (`--ssl-no-revoke`), matching urllib's behavior; headers, UA, retries, and messages are unchanged.
 - **FR-16 Offline payload:** load a saved `.json` file, tolerate a raw message array, and reject saved HTML shells with the reference explanation.
 - **FR-17 Branch choice:** import only the deepest active branch, oldest first; abandoned sibling branches are skipped and counted.
 - **FR-18 Cache:** save a fetched payload to Documents as `claude-share-<id8>.json`; ignore cache write failures.

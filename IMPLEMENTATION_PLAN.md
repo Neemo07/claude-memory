@@ -376,6 +376,18 @@ Fix: an implicit dark `ToolTip` style in `App.xaml` — panel background, line b
 
 Verified: build 0 warnings/0 errors, 470 tests passed, both `dist` folders republished. Visual check is manual (human): hover the shared-link box and confirm the tooltip is dark and readable.
 
+### Post-plan fix — share link always 403 (reported by the human, 2026-11-05, link provided for live testing)
+
+Symptom: Generate with a shared link reported `could not read share link after 3 attempts: HTTP 403 Forbidden`, every time, while the same link worked in the browser and the Python reference had fetched the same endpoint fine.
+
+Diagnosis (live A/B probes, bogus and real uuids, same machine, same minutes): with identical URL and headers, Python 3.12/OpenSSL and the Windows in-box curl.exe reached the backend (404 unknown uuid / 200 real link) while .NET 8 HttpClient got 403 with a `Cf-Mitigated: challenge` Cloudflare block page — on every SslOptions variant probed (ALPN, TLS versions, decompression). The edge rejects the .NET/SChannel TLS fingerprint before the request is evaluated; the reference's urllib handshake passes. Headers, proxies (none configured), source IP (identical via ipify), and DNS were ruled out.
+
+Fix (PRD FR-15a): `Core/Services/CurlShareHandler.cs` — an `HttpMessageHandler` that performs the GET through the in-box `curl.exe` (System32 first, then PATH; present since Windows 10 1803, inside the 1809+ target). Body goes to a temp scratch file, status and content type come from a write-out trailer, headers are forwarded as `-H` arguments, `--ssl-no-revoke` matches urllib's absence of revocation checks, and the process is killed on cancellation (HttpClient's 30 s timeout). `ShareClient`'s default handler is now `CurlShareHandler.TryCreate() ?? HttpClientHandler` — hosts and tests that inject a handler are unchanged. Core gained `InternalsVisibleTo` for its tests (matching the Cli project's pattern).
+
+Second bug found on the way, caught by diffing curl's own `-v` traces: `HttpHeaders` stores `User-Agent` as separate product tokens, so the handler's first-value read put a truncated `User-Agent: Mozilla/5.0` on the wire — itself a bot signal. `JoinHeaderValue` now space-joins UA tokens (comma for other list headers), with a regression test.
+
+Verified: the product `ShareClient` fetched the human's real link (200, 13 root JSON properties); the published `ClaudeMemory.Cli.exe --share <link> --out <temp>\MEMORY.md` imported 6 messages and wrote the file (one transient 403 absorbed by the reference retry loop, exactly the documented behavior). Suite: 218 Core + 163 App + 98 Cli = 479 passed (7 new curl tests), build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.

@@ -69,7 +69,11 @@ public sealed class ShareClient
         HttpMessageHandler? handler = null,
         Func<TimeSpan, CancellationToken, Task>? delay = null)
     {
-        _handler = handler;
+        _handler = handler
+            // Default transport: the in-box curl.exe — claude.ai's edge 403s the .NET/SChannel
+            // TLS fingerprint while the same request from OpenSSL (the reference) and libcurl
+            // passes (PRD §8). Plain HttpClient stays as the fallback where curl is absent.
+            ?? CurlShareHandler.TryCreate() ?? (HttpMessageHandler)new HttpClientHandler();
         _delay = delay ?? ((duration, token) => Task.Delay(duration, token));
     }
 
