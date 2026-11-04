@@ -78,6 +78,9 @@ Recorded here so a reviewer can tell a bug from a decision.
 4. `fmt_cwd` normalises separators only. Python's `Path()` also collapses `.` components; a transcript `cwd` never contains them.
 5. `discover` sorts files whose timestamp cannot be read as `DateTime.MinValue`; the reference would raise `OSError`.
 6. `build_transcript` interpolates `s.end` directly, so the reference raises when a session has a start but no end. The C# port reuses `s.start`, keeping the renderer total for truncated transcripts.
+7. Share error detail text carries the .NET exception message (for example a `JsonException` or an `HttpRequestException`) where the reference prints Python's own wording. The stable prefixes (`cannot read …`, `… is not valid JSON: …`, `could not read share link after N attempts: …`) match.
+8. `--share-save` is best-effort: an IO failure returns false and the import continues, whereas the reference would propagate the write error after the payload was already fetched.
+9. `fetch_share`'s 404-specific `raise` is unreachable in the reference (the retry filter breaks first), so it is not ported; a 404 reports the final `could not read share link after N attempts: HTTP 404 …` message.
 
 ## 3. Dependencies
 
@@ -154,7 +157,7 @@ Gate: all four modes byte-parity after normalisation; IO tests green.
 
 ### Phase 4 — Share import
 
-Scope: `Services/ShareClient.cs`, `ShareCache.cs`, `Parsing/SharePayloadParser.cs`, `ShareBranch.cs`.
+Scope: `Services/ShareClient.cs`, `ShareCache.cs`, `Parsing/SharePayloadParser.cs`, `ShareBranch.cs`, `WebToolAliases.cs`.
 
 Work: URL/UUID validation, strict host check, browser UA, retry/backoff with injected delay, cancellation, cache write best-effort, saved-file loader (object or array), HTML-shell diagnosis, deepest-branch traversal, tool aliases, hidden/thinking blocks, compaction summaries.
 

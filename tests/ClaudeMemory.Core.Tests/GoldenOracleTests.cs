@@ -13,6 +13,7 @@ public sealed class GoldenOracleTests
         "json.json",
         "list.md",
         "share-memory.md",
+        "share-cache.json",
     ];
 
     [Fact]

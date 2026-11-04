@@ -71,6 +71,44 @@ function Invoke-Reference {
     }
 }
 
+function Invoke-CacheReference {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$PayloadPath
+    )
+
+    $script = Join-Path $env:TEMP ('cm-cache-' + [guid]::NewGuid().ToString('N') + '.py')
+    $outFile = Join-Path $env:TEMP ('cm-golden-' + [guid]::NewGuid().ToString('N') + '.txt')
+
+    try {
+        # Mirrors claude_memory.py:1931 (--share-save): json.dumps(payload, indent=1,
+        # ensure_ascii=False) + "\n". Kept as a snippet because --share-save also needs a
+        # live fetch, which this offline generator must not perform.
+        $body = @'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    payload = json.load(handle)
+sys.stdout.write(json.dumps(payload, indent=1, ensure_ascii=False) + "\n")
+'@
+        [System.IO.File]::WriteAllText($script, $body, $utf8)
+
+        $line = 'py -3.12 -X utf8 "' + $script + '" "' + $PayloadPath + '" > "' + $outFile + '"'
+        cmd.exe /d /c $line | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Cache reference failed for $Name." }
+
+        # Windows Python text-mode stdout writes CRLF; the parity contract is LF.
+        $text = [System.IO.File]::ReadAllText($outFile, $utf8).Replace("`r`n", "`n")
+        [System.IO.File]::WriteAllText((Join-Path $golden $Name), $text, $utf8)
+        Write-Host ('wrote {0} ({1} chars)' -f $Name, $text.Length)
+    }
+    finally {
+        Remove-Item -LiteralPath $script -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 $rootArgs = '--root "' + $fixture + '"'
 
 Invoke-Reference 'memory-plain.md' $rootArgs
@@ -82,5 +120,6 @@ Invoke-Reference 'transcript.md' ($rootArgs + ' --mode transcript')
 Invoke-Reference 'json.json' ($rootArgs + ' --mode json')
 Invoke-Reference 'list.md' ($rootArgs + ' --list')
 Invoke-Reference 'share-memory.md' ('--share-file "' + $share + '" --only-share')
+Invoke-CacheReference 'share-cache.json' $share
 
 Write-Host 'Golden files regenerated.'

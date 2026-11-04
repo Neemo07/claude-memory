@@ -11,8 +11,8 @@ public sealed class Session
         Sid = System.IO.Path.GetFileNameWithoutExtension(path);
     }
 
-    /// <summary>Absolute path of the source .jsonl file.</summary>
-    public string Path { get; }
+    /// <summary>Absolute path of the source .jsonl file, or the saved share payload.</summary>
+    public string Path { get; set; }
 
     public string Sid { get; set; } = "";
 
