@@ -12,7 +12,7 @@ the last one.
 - **Deps:** none at runtime. Self-contained Windows binaries; the WebView2 Runtime
   (already shipped with Windows 10 1809+) is the only thing the preview pane needs.
 
-This is the .NET 8 / WPF rewrite of the original Python 1.1.0 tool. The ported logic
+This is the .NET 8 / WPF rewrite of the original 1.1.0 tool. The ported logic
 is verified against frozen reference outputs (445 tests run offline); the desktop
 window, the Markdown preview and the file association are new in this version.
 
@@ -271,4 +271,5 @@ What they cover:
 - Windows 10 1809+ (x64)
 - WebView2 Runtime for the preview pane (pre-installed on up-to-date Windows; the app
   tells you the install link if it is missing)
-- No Python, no admin rights, no other runtime
+- No extra runtime to install: no admin rights, nothing beyond Windows itself and
+  the WebView2 Runtime the preview pane uses

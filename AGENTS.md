@@ -2,10 +2,9 @@
 
 ## Current state
 
-- `claude_memory.py` 1.1.0, `gui.py`, `app.py`, and `markdown_preview.py` are the **reference implementation** and the behavioural oracle.
-- The C# rewrite lives under `src/`. Target: .NET 8 LTS, WPF, Windows 10 1809+.
-- Python is removed only in the final phase, after the parity suite passes and the human approves removal.
-- Until then, do not edit Python application files. Treat them as read-only evidence.
+- The C# implementation under `src/` is the product. Target: .NET 8 LTS, WPF, Windows 10 1809+.
+- The original 1.1.0 reference implementation lives in `archive/claude-memory-python-1.1.0.zip`; restore it before regenerating anything that needs the oracle.
+- The **parity contract** is the frozen golden output: `tests/golden/` plus the fixtures in `tests/fixtures/`. Golden updates require a documented behaviour reason.
 
 ## Architecture
 
@@ -13,10 +12,11 @@
 src/
   ClaudeMemory.Core/   net8.0 class library — parsing, selection, rendering, IO, share import
   ClaudeMemory.App/    net8.0-windows WPF shell — views, view models, dialogs, WebView2, shell integration
-  ClaudeMemory.Cli/    net8.0 console host — headless parity with claude_memory.py
+  ClaudeMemory.Cli/    net8.0 console host — headless run of the same pipeline
 tests/
   ClaudeMemory.Core.Tests/
   ClaudeMemory.App.Tests/
+  ClaudeMemory.Cli.Tests/
 ```
 
 Dependency direction: `App -> Core`, `Cli -> Core`, `Core -> (nothing UI-specific)`.
@@ -28,16 +28,16 @@ Dependency direction: `App -> Core`, `Cli -> Core`, `Core -> (nothing UI-specifi
 dotnet build src/ClaudeMemory.sln -c Release
 dotnet test src/ClaudeMemory.sln -c Release
 dotnet run --project src/ClaudeMemory.App -c Debug
-dotnet run --project src/ClaudeMemory.Cli -c Debug -- --root _fixture_root --list
+dotnet run --project src/ClaudeMemory.Cli -c Debug -- --root tests/fixtures/fixture_root --list
 ```
 
 A change is not done until the build and the relevant tests have actually been run and the output was observed. Say which commands ran and what they printed.
 
 ## Behaviour rules
 
-1. **Parity first.** Every ported behaviour cites the Python source (`file:line`) in the commit body. If a difference is intentional, document it in `PRD.md` and update the golden file in the same commit.
-2. **No invented behaviour.** Do not add filters, flags, formats, caches, telemetry, or "helpful" defaults that the Python app did not have, unless the PRD lists them.
-3. **Recency wins.** Preserve the Python rules: newest material survives trimming; the end of a conversation is always quoted; prompt caps drop the oldest.
+1. **Parity first.** Every ported behaviour cites the archived reference (`file:line`) in the commit body; the citations point at the sources inside `archive/claude-memory-python-1.1.0.zip`. If a difference is intentional, document it in `PRD.md` and update the golden file in the same commit.
+2. **No invented behaviour.** Do not add filters, flags, formats, caches, telemetry, or "helpful" defaults the reference did not have, unless the PRD lists them.
+3. **Recency wins.** Preserve the reference rules: newest material survives trimming; the end of a conversation is always quoted; prompt caps drop the oldest.
 4. **Budget math is observable.** `Budget` accounting and the trim note must match the reference output. Do not silently raise limits.
 5. **Encoding.** Read transcripts with UTF-8 and replacement fallback. Write UTF-8 without BOM, LF newlines. Never crash on a malformed line or an unknown role.
 6. **Windows paths.** Long paths must work. Enable the manifest `longPathAware` setting and use `\\?\`-safe APIs where needed.
@@ -102,7 +102,7 @@ Everything else uses the base class library. Do not add an MVVM toolkit, JSON li
 - One phase from `IMPLEMENTATION_PLAN.md` per commit. Do not mix phases.
 - No drive-by formatting, renames, or refactors outside the active phase.
 - Public behaviour changes need a test. Bug fixes need a regression test where practical.
-- Do not delete the Python app, fixtures, or user data without explicit approval in that phase.
+- Do not delete fixtures, golden files, or user data without explicit approval in that phase.
 
 ## Honesty rules
 

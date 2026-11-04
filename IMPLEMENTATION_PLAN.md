@@ -332,6 +332,16 @@ Acceptance: no reference to Python remains in docs/scripts; build and tests pass
 
 Rollback: restore from `archive/claude-memory-python-1.1.0.zip` and the Phase 9 commit.
 
+Recorded on this machine (user started Phase 10, which is the approval this phase required):
+
+- **Archive:** `archive/claude-memory-python-1.1.0.zip`, 94,754 bytes, 13 entries: the five Python sources, the three test suites, both launchers, `tools/gen-golden.ps1` (the golden regenerator, which can only run against the Python oracle and is kept with it), `.gitignore`, and a `README.md` snapshot taken from commit `9d89d89` (the last commit before the README rewrite). Verified by `Expand-Archive` plus per-file hash comparison against the working tree for all 12 payload files and against `git show 9d89d89:README.md` for the snapshot: all matched.
+- **Removed:** the eleven tracked files above via `git rm` (recoverable from git history and from the archive), plus the untracked `.venv/`, `__pycache__/`, root `_fixture_root/`, and `out/` directories. Before deleting `_fixture_root/` every one of its five files was hash-compared against the kept `tests/fixtures/fixture_root` copy (seven files, a superset): `allCopiesIdentical=True`. `out/` held only `share-payload.json`, generated test output.
+- **Updated:** `.gitignore` dropped `_fixture_root/`, `.venv/`, `__pycache__/`, `*.pyc`; `AGENTS.md` rewritten for the post-removal state (the C# tree is the product; the archive holds the reference; the frozen goldens are the parity contract; fixture path in the build examples corrected); README's two Python mentions reworded to carry the same facts without the dependency framing. `PRD.md` untouched: its remaining mentions describe the original requirements and the acceptance history, which is what a PRD is for.
+- **Reference sweep, and how the acceptance line was applied:** every operational reference is gone — README, the slash command, `.gitignore`, scripts, and both launchers. The `file:line` provenance citations in source comments, test doc comments, and `IMPLEMENTATION_PLAN.md` deliberately remain: they are the parity evidence AGENTS.md rule 1 requires, and after this phase they point at the sources inside the archive. Deleting them would erase the ability to tell a ported bug from a decision, which is the opposite of this phase's purpose.
+- **Full suite after removal:** `dotnet build src/ClaudeMemory.sln -c Release -warnaserror` reports 0 warnings and 0 errors; `dotnet test` reports 209 Core + 142 App + 98 Cli = 449 passed, 0 failed.
+
+Manual checks (human): none outstanding for this phase; the archive restore path itself is worth one try on the human's machine someday (extract, `py -3.12 claude_memory.py --help`) if the Python reference is ever needed again.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.
