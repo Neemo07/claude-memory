@@ -1,0 +1,7 @@
+_fixture_root/
+out/
+.venv/
+__pycache__/
+*.pyc
+MEMORY.md
+MEMORY.history/
