@@ -342,6 +342,16 @@ Recorded on this machine (user started Phase 10, which is the approval this phas
 
 Manual checks (human): none outstanding for this phase; the archive restore path itself is worth one try on the human's machine someday (extract, `py -3.12 claude_memory.py --help`) if the Python reference is ever needed again.
 
+### Post-plan fix — blank preview pane (reported by the human, 2026-11-05)
+
+Symptom: the preview pane opened (status `reading MEMORY.md`, green) but stayed blank.
+
+Cause: `MainWindow` set a `_navigatingToPreview` flag around `NavigateToString` and let `NavigationStarting` through while it was set. WebView2 fires that event *after* the call returns, so the flag was always cleared again by then, the host treated its own `data:text/html` navigation as external, cancelled it, and the pane stayed empty. The Phase 7 probe did not attach the guard, which is why it never saw this. The same race also cancelled in-document anchor clicks. Flagged as fragility by the Phase 9 independent review (item 15).
+
+Fix: `Preview/PreviewNavigationPolicy.IsSelfNavigation(uri)` decides from the URI alone — `data:text/html` (both percent-encoded and base64 form, plus anchor clicks on the same document) and `about:blank` stay in the host; everything else is cancelled and, for validated schemes, opened in the browser. The flag was removed. Content cannot abuse the `data:` allowance: the document's CSP disables scripts and the sanitizer strips every href outside the allowlist.
+
+Verified: a dedicated WebView2 probe hosting the real `PreviewHtmlBuilder` document with the product guard attached logged `starting uri=data:text/html;charset=utf-8;base64,... policy=self cancelled=False`, `navigation=success`, and rendered content (`headings:1`, body text present). Unit suite: 209 Core + 157 App + 98 Cli = 464 passed (15 new policy tests), build 0 warnings/0 errors, and both `dist` folders republished from the fixed source.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.

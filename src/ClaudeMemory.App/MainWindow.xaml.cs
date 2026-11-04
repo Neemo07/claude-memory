@@ -15,7 +15,6 @@ namespace ClaudeMemory.App;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _model;
-    private bool _navigatingToPreview;
 
     public MainWindow()
     {
@@ -116,21 +115,15 @@ public partial class MainWindow : Window
         if (!_model.PreviewVisible) return;
         if (_model.PreviewHtml.Length == 0) return;
 
-        _navigatingToPreview = true;
-        try
-        {
-            Preview.NavigateToString(_model.PreviewHtml);
-        }
-        finally
-        {
-            _navigatingToPreview = false;
-        }
+        Preview.NavigateToString(_model.PreviewHtml);
     }
 
     private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
-        if (_navigatingToPreview) return;
-        if (e.Uri.StartsWith("about:blank", StringComparison.Ordinal)) return;
+        // The document itself navigates as data:text/html (NavigateToString, and anchor
+        // clicks inside it); those events fire after the call returns, so the decision is
+        // made purely from the URI.
+        if (PreviewNavigationPolicy.IsSelfNavigation(e.Uri)) return;
 
         // Everything else leaves the page unless it is a plain external link.
         e.Cancel = true;
