@@ -324,8 +324,8 @@
                              FontFamily="{StaticResource MonoFont}" FontSize="12"
                              VerticalScrollBarVisibility="Auto"
                              HorizontalScrollBarVisibility="Auto"
-                             Text="{Binding OutputText, Mode=OneWay}"
-                             AutomationProperties.Name="Generated output"
+                             Text="{Binding SourceText, Mode=OneWay}"
+                             AutomationProperties.Name="Document source"
                              Visibility="{Binding ShowSourceView, Converter={StaticResource BoolToVis}}" />
                     <TextBlock Margin="16" VerticalAlignment="Top" TextWrapping="Wrap"
                                FontSize="13"

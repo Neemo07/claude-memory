@@ -80,6 +80,7 @@ public sealed class MainViewModel : ObservableObject
 
     // Preview
     private string _previewHtml = "";
+    private string _previewFileText = "";
     private string _previewFileName = "";
     private bool _previewVisible;
     private bool _previewIsFile;
@@ -116,10 +117,10 @@ public sealed class MainViewModel : ObservableObject
         GenerateCommand = new AsyncRelayCommand(GenerateAsync, () => !IsBusy);
         CancelCommand = new RelayCommand(Cancel, () => IsBusy);
         SaveCommand = new RelayCommand(Save, () => HasOutput && !IsBusy);
-        SaveAsCommand = new RelayCommand(SaveAs, () => HasOutput && !IsBusy);
+        SaveAsCommand = new RelayCommand(SaveAs, () => HasDocument && !IsBusy);
         OpenFolderCommand = new RelayCommand(OpenFolder);
-        CopyCommand = new RelayCommand(Copy, () => HasOutput && !IsBusy);
-        CopyClaudeCommand = new RelayCommand(CopyClaude, () => HasOutput && !IsBusy);
+        CopyCommand = new RelayCommand(Copy, () => HasDocument && !IsBusy);
+        CopyClaudeCommand = new RelayCommand(CopyClaude, () => HasDocument && !IsBusy);
         BrowseShareFileCommand = new RelayCommand(BrowseShareFile, () => !IsBusy);
         ScanCommand = new AsyncRelayCommand(ScanAsync, () => !IsBusy);
         PreviewCommand = new RelayCommand(TogglePreview, () => !IsBusy);
@@ -314,6 +315,8 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!Set(ref _outputText, value ?? "")) return;
             Raise(nameof(HasOutput));
+            Raise(nameof(SourceText));
+            Raise(nameof(HasDocument));
             Raise(nameof(ShowSourceView));
             Raise(nameof(ShowEmptyState));
             Raise(nameof(PreviewCaption));
@@ -321,6 +324,16 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool HasOutput => _outputText.Length > 0;
+
+    /// <summary>
+    /// What the source pane shows and what Copy/Save As/Copy for CLAUDE.md act on: the
+    /// opened file's raw Markdown while a file is the current document, otherwise the
+    /// generated output.
+    /// </summary>
+    public string SourceText => PreviewIsFile ? _previewFileText : OutputText;
+
+    /// <summary>True when there is a document to act on: generated output or an opened file.</summary>
+    public bool HasDocument => HasOutput || (PreviewIsFile && _previewFileText.Length > 0);
 
     public string Stats
     {
@@ -377,11 +390,11 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>The monospace source view shows whenever there is output and no preview.</summary>
-    public bool ShowSourceView => HasOutput && !PreviewVisible;
+    /// <summary>The monospace source view shows whenever there is a document and no preview.</summary>
+    public bool ShowSourceView => !PreviewVisible && (HasOutput || PreviewIsFile);
 
-    /// <summary>The explanatory empty state (gui.py:396-397).</summary>
-    public bool ShowEmptyState => !HasOutput;
+    /// <summary>The explanatory empty state (gui.py:396-397); hidden while a file is the document.</summary>
+    public bool ShowEmptyState => !HasOutput && !PreviewIsFile;
 
     /// <summary>The document the WebView2 host displays; empty until a preview is built.</summary>
     public string PreviewHtml
@@ -400,6 +413,18 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>The raw text of the previewed file, kept for the source view and Copy/Save.</summary>
+    public string PreviewFileText
+    {
+        get => _previewFileText;
+        private set
+        {
+            if (!Set(ref _previewFileText, value ?? "")) return;
+            Raise(nameof(SourceText));
+            Raise(nameof(HasDocument));
+        }
+    }
+
     /// <summary>True when the preview shows an opened file rather than generated output.</summary>
     public bool PreviewIsFile
     {
@@ -407,14 +432,19 @@ public sealed class MainViewModel : ObservableObject
         private set
         {
             if (!Set(ref _previewIsFile, value)) return;
-            Raise(nameof(PreviewLabel));
+            Raise(nameof(SourceText));
+            Raise(nameof(HasDocument));
+            Raise(nameof(ShowSourceView));
+            Raise(nameof(ShowEmptyState));
             Raise(nameof(PreviewCaption));
         }
     }
 
-    /// <summary>The toolbar button text (gui.py:641-648).</summary>
-    public string PreviewLabel
-        => !PreviewVisible ? "Preview MD" : PreviewIsFile ? "Close preview" : "Show source";
+    /// <summary>
+    /// The toolbar button text. Both documents now toggle preview ↔ source; the reference's
+    /// file mode only closed the preview (gui.py:641-648) — see PRD §6 for the difference.
+    /// </summary>
+    public string PreviewLabel => PreviewVisible ? "Show source" : "Preview MD";
 
     /// <summary>The reference's <c>#meta</c> line: the file name, or the stats (gui.py:657).</summary>
     public string PreviewCaption
@@ -686,16 +716,24 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>Writes to a path the user picks in a native Save As dialog (gui.py:1176-1205).</summary>
+    /// <summary>
+    /// Writes to a path the user picks in a native Save As dialog (gui.py:1176-1205). While
+    /// an opened file is the current document the file's text is saved and the generated
+    /// output's file name is left alone (PRD §6).
+    /// </summary>
     public void SaveAs()
     {
-        if (!HasOutput)
+        if (!HasDocument)
         {
             NothingYet("save");
             return;
         }
 
-        var chosen = _dialogs.PickSaveFile(OutputName, FolderOrDefault());
+        var isFile = PreviewIsFile && _previewFileText.Length > 0;
+        var text = isFile ? _previewFileText : OutputText;
+        var suggestedName = isFile && _previewFileName.Length > 0 ? _previewFileName : OutputName;
+
+        var chosen = _dialogs.PickSaveFile(suggestedName, FolderOrDefault());
         if (chosen is null)
         {
             SetStatus("no file chosen - nothing changed", StatusKind.Warn);
@@ -704,8 +742,8 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            var target = SaveService.SaveAs(chosen, OutputText, HistoryCount, _now());
-            OutputName = System.IO.Path.GetFileName(target);
+            var target = SaveService.SaveAs(chosen, text, HistoryCount, _now());
+            if (!isFile) OutputName = System.IO.Path.GetFileName(target);
             SetStatus("saved " + target, StatusKind.Ok);
         }
         catch (Exception error) when (IsSaveFailure(error))
@@ -731,28 +769,31 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>Copies the generated document (gui.py:846-849).</summary>
+    /// <summary>Copies the generated document (gui.py:846-849), or the opened file's text.</summary>
     public void Copy()
     {
-        if (!HasOutput)
+        if (!HasDocument)
         {
             NothingYet("copy");
             return;
         }
 
-        CopyText(OutputText, "memory");
+        CopyText(SourceText, PreviewIsFile ? "file" : "memory");
     }
 
-    /// <summary>Copies the output wrapped in CLAUDE.md paste markers (gui.py:854-861).</summary>
+    /// <summary>
+    /// Copies the document wrapped in CLAUDE.md paste markers (gui.py:854-861); for an
+    /// opened file the file's text is wrapped (PRD §6).
+    /// </summary>
     public void CopyClaude()
     {
-        if (!HasOutput)
+        if (!HasDocument)
         {
             NothingYet("copy");
             return;
         }
 
-        var body = OutputText.Trim();
+        var body = SourceText.Trim();
         var wrapped = body.StartsWith(ClaudeBeginMarker, StringComparison.Ordinal)
             ? body
             : ClaudeBeginMarker + "\n" + body + "\n" + ClaudeEndMarker;
@@ -783,22 +824,30 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Toggles the preview, or opens a file when nothing has been generated.</summary>
     /// <remarks>
     /// Ported from gui.py:696-726 (<c>togglePreview</c>): hide first, then refuse JSON, then
-    /// fall through to the file dialog when there is no output.
+    /// fall through to the file dialog when there is no output. Difference (PRD §6): in file
+    /// mode the toggle flips preview ↔ source instead of closing, so PreviewIsFile survives
+    /// the hide and the file's raw Markdown is reachable.
     /// </remarks>
     private void TogglePreview()
     {
         if (PreviewVisible)
         {
-            var wasFile = PreviewIsFile;
+            if (!PreviewIsFile) PreviewIsFile = false;
             PreviewVisible = false;
-            PreviewIsFile = false;
-            SetStatus(wasFile ? "preview closed" : "source view", StatusKind.Ok);
+            SetStatus("source view", StatusKind.Ok);
             return;
         }
 
         if (!PreviewHostAvailable)
         {
             SetStatus(PreviewUnavailableMessage, StatusKind.Error);
+            return;
+        }
+
+        if (PreviewIsFile)
+        {
+            PreviewVisible = true;
+            SetStatus("Markdown preview", StatusKind.Ok);
             return;
         }
 
@@ -866,6 +915,7 @@ public sealed class MainViewModel : ObservableObject
         {
             var file = MarkdownFileReader.Read(path);
             PreviewHtml = PreviewHtmlBuilder.BuildDocument(file.Text);
+            PreviewFileText = file.Text;
             PreviewFileName = file.Name;
             PreviewIsFile = true;
             PreviewVisible = true;

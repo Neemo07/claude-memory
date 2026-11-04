@@ -2,6 +2,7 @@ using System.IO;
 using ClaudeMemory.App.Preview;
 using ClaudeMemory.App.Services;
 using ClaudeMemory.App.ViewModels;
+using ClaudeMemory.Core.Services;
 
 namespace ClaudeMemory.App.Tests;
 
@@ -553,10 +554,102 @@ public sealed class MainViewModelTests
         Assert.Contains("<h1>Opened</h1>", model.PreviewHtml, StringComparison.Ordinal);
         Assert.Equal(DialogFilters.MarkdownPreview, dialogs.LastFilter);
 
-        // Closing a file preview returns the caption to the stats.
+        // The file toggle flips between the file's preview and its source (PRD §6);
+        // the file stays the current document in both states.
         model.PreviewCommand.Execute(null);
-        Assert.Equal("preview closed", model.StatusMessage);
-        Assert.Equal(model.Stats, model.PreviewCaption);
+        Assert.Equal("source view", model.StatusMessage);
+        Assert.False(model.PreviewVisible);
+        Assert.True(model.ShowSourceView);
+        Assert.True(model.PreviewIsFile);
+        Assert.Equal("Preview MD", model.PreviewLabel);
+        Assert.Equal("# Opened\n\nbody\n", model.SourceText);
+        Assert.Equal("README.md", model.PreviewCaption);
+
+        model.PreviewCommand.Execute(null);
+        Assert.True(model.PreviewVisible);
+        Assert.Equal("Markdown preview", model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+    }
+
+    [Fact]
+    public void An_opened_file_enables_copy_and_copies_its_text()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Opened\n\nbody\n");
+
+        var clipboard = new FakeClipboardService();
+        var model = NewModel(clipboard: clipboard);
+        model.OpenMarkdownPath(path);
+
+        // Regression: with a file previewed and nothing generated, Copy/Save As/Copy for
+        // CLAUDE.md used to stay disabled because only the generated output counted.
+        Assert.True(model.HasDocument);
+        Assert.True(model.CopyCommand.CanExecute(null));
+        Assert.True(model.SaveAsCommand.CanExecute(null));
+        Assert.True(model.CopyClaudeCommand.CanExecute(null));
+
+        model.CopyCommand.Execute(null);
+
+        Assert.Equal("# Opened\n\nbody\n", clipboard.LastText);
+        Assert.Equal("file copied to clipboard", model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+    }
+
+    [Fact]
+    public void Copy_for_claude_md_wraps_an_opened_files_text()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Opened\n");
+
+        var clipboard = new FakeClipboardService();
+        var model = NewModel(clipboard: clipboard);
+        model.OpenMarkdownPath(path);
+
+        model.CopyClaudeCommand.Execute(null);
+
+        Assert.Equal(
+            "<!-- claude-memory:begin -->\n# Opened\n<!-- claude-memory:end -->",
+            clipboard.LastText);
+        Assert.Equal("CLAUDE.md block copied to clipboard", model.StatusMessage);
+    }
+
+    [Fact]
+    public void Save_as_writes_an_opened_file_and_leaves_the_output_name_alone()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Opened\n");
+
+        var target = Path.Combine(temp.Path, "copy.md");
+        var dialogs = new FakeFileDialogService { SaveResult = target };
+        var model = NewModel(dialogs: dialogs);
+        model.OpenMarkdownPath(path);
+
+        model.SaveAsCommand.Execute(null);
+
+        Assert.Equal("# Opened\n", File.ReadAllText(target));
+        Assert.Equal("README.md", dialogs.LastSuggestedName);
+        Assert.Equal(PathPolicy.DefaultName, model.OutputName);
+        Assert.Equal("saved " + target, model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+    }
+
+    [Fact]
+    public async Task Generating_replaces_an_opened_file_as_the_current_document()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Opened\n");
+        var model = NewModel(PipelineReturning("# Memory\n"));
+        model.OpenMarkdownPath(path);
+
+        await model.GenerateAsync();
+
+        Assert.False(model.PreviewIsFile);
+        Assert.True(model.ShowSourceView);
+        Assert.Equal("# Memory\n", model.SourceText);
     }
 
     [Fact]

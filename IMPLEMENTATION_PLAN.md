@@ -352,6 +352,16 @@ Fix: `Preview/PreviewNavigationPolicy.IsSelfNavigation(uri)` decides from the UR
 
 Verified: a dedicated WebView2 probe hosting the real `PreviewHtmlBuilder` document with the product guard attached logged `starting uri=data:text/html;charset=utf-8;base64,... policy=self cancelled=False`, `navigation=success`, and rendered content (`headings:1`, body text present). Unit suite: 209 Core + 157 App + 98 Cli = 464 passed (15 new policy tests), build 0 warnings/0 errors, and both `dist` folders republished from the fixed source.
 
+### Post-plan fix — dead toolbar and no source view for an opened file (reported by the human, 2026-11-05)
+
+Symptom: with a Markdown file previewed, `Copy`, `Save As...`, and `Copy for CLAUDE.md` were disabled and there was no way to see the file's original Markdown; the toggle only closed the preview.
+
+Cause: those commands' `CanExecute` required `HasOutput` (`_outputText.Length > 0`), which stays empty when only a file was opened, and the source pane bound `OutputText` — the file's text was never kept anywhere. The reference behaved the same way (`gui.py` `setPreviewVisible` 641-648 closes a file preview; `togglePreview` 696-726 falls back to the file dialog; copy/save act on the generated output only), so this is a deliberate UX addition, documented in `PRD.md` §6 ("Opened files as documents").
+
+Fix: the view model keeps the previewed file's text (`PreviewFileText`, set by `OpenMarkdownPath` from `MarkdownFileReader.Read`), exposes `SourceText` (file text while `PreviewIsFile`, otherwise the generated output — now the source pane's binding) and `HasDocument`; `Copy`/`SaveAs`/`CopyClaude` enable on `HasDocument` and act on the visible document (`Save` in the save section still writes the generated output only, and file-mode Save As leaves the generated-output file name untouched). In file mode the toggle flips preview ↔ source instead of closing: `PreviewLabel` is now simply "Show source"/"Preview MD", the file stays the current document until a generate or another file replaces it, and the empty state hides while a file document is open.
+
+Verified: 4 new regression tests (file enables Copy and copies its text; Copy for CLAUDE.md wraps the file's text; Save As writes the file's text, suggests the file's name, and leaves `OutputName` alone; a generate replaces the file as the current document) plus the updated file-toggle test. Suite: 209 Core + 161 App + 98 Cli = 468 passed, build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.
