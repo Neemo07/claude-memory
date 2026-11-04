@@ -5,3 +5,12 @@ __pycache__/
 *.pyc
 MEMORY.md
 MEMORY.history/
+
+# .NET build output
+bin/
+obj/
+dist/
+.vs/
+TestResults/
+*.user
+*.suo

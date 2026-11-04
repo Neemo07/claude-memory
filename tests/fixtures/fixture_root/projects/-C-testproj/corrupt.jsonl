@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"ok"}}
+this is not json
+
+{"broken": 
+{"type":"summary","summary":"orphan summary"}

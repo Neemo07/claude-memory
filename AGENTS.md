@@ -90,7 +90,7 @@ Pinned dependencies (no substitutes without a plan update):
 | Package | Version | Why |
 |---|---|---|
 | Markdig | 1.5.1 | CommonMark + GFM tables/task lists; a hand-written parser is not justified for a preview feature |
-| Microsoft.Web.WebView2 | 1.0.4365.35 | GitHub-like preview with the runtime already shipped on Windows |
+| Microsoft.Web.WebView2 | 1.0.4314.35 | GitHub-like preview with the runtime already shipped on Windows |
 | xunit | 2.9.3 | Test framework |
 | xunit.runner.visualstudio | 3.1.5 | Test discovery |
 | Microsoft.NET.Test.Sdk | 17.14.1 | Test host |

@@ -73,7 +73,7 @@ Anything else must match exactly.
 | Package | Exact version | Justification |
 |---|---|---|
 | Markdig | 1.5.1 | GFM tables/task lists/strikethrough. A hand-written parser would be ~600 lines with worse edge-case coverage. |
-| Microsoft.Web.WebView2 | 1.0.4365.35 | Preview fidelity. Runtime 148 is already present on this machine; source view is the fallback. |
+| Microsoft.Web.WebView2 | 1.0.4314.35 | Preview fidelity. Runtime 148 is already present on this machine; source view is the fallback. |
 | xunit | 2.9.3 | Tests. |
 | xunit.runner.visualstudio | 3.1.5 | Test discovery. |
 | Microsoft.NET.Test.Sdk | 17.14.1 | Test host. |
@@ -90,6 +90,8 @@ Scope:
 - Create `src/ClaudeMemory.sln`, the three projects, `tests` projects, `Directory.Build.props`, `.editorconfig`, app manifest (`longPathAware`, DPI aware), `publish.ps1`, `tools/gen-golden.ps1`.
 - Copy `_fixture_root` to `tests/fixtures/fixture_root` and `out/share-payload.json` to `tests/fixtures/share-payload.json` (repository-tracked copies).
 - Run the Python reference and commit `tests/golden/*.md|json` for: memory/plain, memory/claude-md, memory/ascii, full/plain, transcript, json, plus a synthetic corpus with Arabic text, errors, decisions, preferences, TODOs, tool calls, and a branching share payload.
+- Use a small synthetic share fixture (`tests/fixtures/share-branching.json`) instead of copying the real `out/share-payload.json`, so no captured conversation is added to the repository.
+- Normalise the golden files to LF. Python on Windows writes CRLF when redirected; line endings are one of the allowed parity normalisations.
 
 Acceptance:
 

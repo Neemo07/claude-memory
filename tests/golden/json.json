@@ -1,0 +1,434 @@
+{
+  "generated": "2026-11-04T15:11:57Z",
+  "tool": "claude_memory.py 1.1.0",
+  "sessions": [
+    {
+      "id": "corrupt",
+      "file": "C:\\Users\\ImPro\\Desktop\\claude-memory\\tests\\fixtures\\fixture_root\\projects\\-C-testproj\\corrupt.jsonl",
+      "cwd": "",
+      "branch": "",
+      "model": "",
+      "claude_code_version": "",
+      "start": null,
+      "end": null,
+      "duration_seconds": 0.0,
+      "turns": 1,
+      "tool_calls": 0,
+      "records_skipped": 0,
+      "summaries": [
+        "orphan summary"
+      ],
+      "prompts": [
+        "ok"
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "ts": null,
+          "sidechain": false,
+          "text": "ok",
+          "tools": [],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "id": "synth-0001",
+      "file": "C:\\Users\\ImPro\\Desktop\\claude-memory\\tests\\fixtures\\fixture_root\\projects\\-C-work-demo\\synthetic.jsonl",
+      "cwd": "C:/work/demo",
+      "branch": "main",
+      "model": "claude-sonnet-4-5",
+      "claude_code_version": "2.1.0",
+      "start": "2026-10-01T09:00:00+00:00",
+      "end": "2026-10-01T09:12:00+00:00",
+      "duration_seconds": 720.0,
+      "turns": 10,
+      "tool_calls": 2,
+      "records_skipped": 2,
+      "summaries": [
+        "Synthetic parity session covering decisions, constraints, tools, and errors."
+      ],
+      "prompts": [
+        "We must keep the generator offline. Add a Markdown preview command and never phone home.",
+        "Please inspect C:\\work\\demo\\src\\Preview.cs and report the error you found.",
+        "Keep going and show me the final checklist."
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "ts": "2026-10-01T09:01:00+00:00",
+          "sidechain": false,
+          "text": "We must keep the generator offline. Add a Markdown preview command and never phone home.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-01T09:02:00+00:00",
+          "sidechain": false,
+          "text": "We decided to use Markdig for preview rendering. The parser must never send transcripts to the network. Convention: always keep the preview read-only.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "user",
+          "ts": "2026-10-01T09:03:00+00:00",
+          "sidechain": false,
+          "text": "Please inspect C:\\work\\demo\\src\\Preview.cs and report the error you found.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-01T09:04:00+00:00",
+          "sidechain": false,
+          "text": "I will delegate the inspection to a subagent.",
+          "tools": [
+            {
+              "name": "Task",
+              "input": "explore: inspect preview code"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-01T09:05:00+00:00",
+          "sidechain": true,
+          "text": "Subagent found a null reference at src/Preview.cs:42; the root cause is a missing guard.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-01T09:06:00+00:00",
+          "sidechain": false,
+          "text": "",
+          "tools": [
+            {
+              "name": "Edit",
+              "input": "file_path=src/Preview.cs"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "user",
+          "ts": "2026-10-01T09:07:00+00:00",
+          "sidechain": false,
+          "text": "",
+          "tools": [],
+          "errors": [
+            "Error: CS0103 preview is not defined"
+          ]
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-01T09:08:00+00:00",
+          "sidechain": false,
+          "text": "TODO: verify the fix on a 10 MB transcript. Next steps: run dotnet test and check the mismatch report. The preview crashed with a null reference before the guard, and that is fixed now. Version 2.0.1 measured 120 ms.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "user",
+          "ts": "2026-10-01T09:09:00+00:00",
+          "sidechain": false,
+          "text": "Keep going and show me the final checklist.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-01T09:10:00+00:00",
+          "sidechain": false,
+          "text": "Plan:\n- Run the full parity suite.\n- Compare 0x1F and 0x2A identifiers.\n- Save C:\\work\\demo\\MEMORY.md.\n\nOpen question: should the association be per-user? Answer: yes, HKCU only.",
+          "tools": [],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "id": "arabic-0001",
+      "file": "C:\\Users\\ImPro\\Desktop\\claude-memory\\tests\\fixtures\\fixture_root\\projects\\-C-work-arabic\\arabic.jsonl",
+      "cwd": "C:/work/arabic",
+      "branch": "main",
+      "model": "claude-sonnet-4-5",
+      "claude_code_version": "2.1.0",
+      "start": "2026-10-02T10:00:00+00:00",
+      "end": "2026-10-02T10:04:00+00:00",
+      "duration_seconds": 240.0,
+      "turns": 4,
+      "tool_calls": 0,
+      "records_skipped": 0,
+      "summaries": [
+        "جلسة عربية لاختبار العناوين ثنائية اللغة."
+      ],
+      "prompts": [
+        "يجب أن يبقى التطبيق دون اتصال. أضف معاينة Markdown.",
+        "ما الخطوات التالية؟"
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "ts": "2026-10-02T10:01:00+00:00",
+          "sidechain": false,
+          "text": "يجب أن يبقى التطبيق دون اتصال. أضف معاينة Markdown.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-02T10:02:00+00:00",
+          "sidechain": false,
+          "text": "قررنا استخدام Markdown للعرض. يجب ألا نرسل النصوص إلى الشبكة. التفضيل: اجعل المعاينة للقراءة فقط.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "user",
+          "ts": "2026-10-02T10:03:00+00:00",
+          "sidechain": false,
+          "text": "ما الخطوات التالية؟",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-02T10:04:00+00:00",
+          "sidechain": false,
+          "text": "الخطوات التالية: اختبر الواجهة ثم احفظ الملف. تم قياس 95 ms لإظهار المعاينة.",
+          "tools": [],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "id": "11111111-2222-3333-4444-555555555555",
+      "file": "C:\\Users\\ImPro\\Desktop\\claude-memory\\tests\\fixtures\\fixture_root\\projects\\-C-testproj\\11111111-2222-3333-4444-555555555555.jsonl",
+      "cwd": "C:/testproj",
+      "branch": "main",
+      "model": "claude-sonnet-4-5",
+      "claude_code_version": "2.0.14",
+      "start": "2026-10-05T09:00:00+00:00",
+      "end": "2026-10-05T09:14:00+00:00",
+      "duration_seconds": 840.0,
+      "turns": 7,
+      "tool_calls": 5,
+      "records_skipped": 5,
+      "summaries": [
+        "Audited packet.cpp: endianness/length bug at 0x00401230, patched to uint32_t. Build blocked: build_full.py absent. Remaining: header padding check."
+      ],
+      "prompts": [
+        "Audit the packet parser in src/net/packet.cpp against the native binary at 0x00401230 and tell me what is wrong.",
+        "Now build it and run the tests."
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "ts": "2026-10-05T09:01:00+00:00",
+          "sidechain": false,
+          "text": "Audit the packet parser in src/net/packet.cpp against the native binary at 0x00401230 and tell me what is wrong.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:02:00+00:00",
+          "sidechain": false,
+          "text": "I will read the parser first, then compare against the disassembly.\n\nPlan:\n1. Read src/net/packet.cpp and the header\n2. Disassemble the native handler and diff the opcodes\n3. Report the mismatch with offsets",
+          "tools": [
+            {
+              "name": "Read",
+              "input": "file_path=C:\\testproj\\src\\net\\packet.cpp"
+            },
+            {
+              "name": "Read",
+              "input": "file_path=C:\\testproj\\src\\net\\packet.h"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:05:00+00:00",
+          "sidechain": false,
+          "text": "Decision: the native function at 0x00401230 reads the length field as a big-endian uint32_t, but packet.cpp uses memcpy into a uint16_t. That is the root cause of the truncated packets.\n\nWe must never add a bounds check that the native code does not have, because the server relies on the trust model.",
+          "tools": [
+            {
+              "name": "Edit",
+              "input": "file_path=C:\\testproj\\src\\net\\packet.cpp"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "user",
+          "ts": "2026-10-05T09:08:00+00:00",
+          "sidechain": false,
+          "text": "Now build it and run the tests.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:09:00+00:00",
+          "sidechain": false,
+          "text": "I'll run the build. Convention in this repo: always use build_full.py, never invoke g++ directly, and keep worker count at 4 or lower.",
+          "tools": [
+            {
+              "name": "Bash",
+              "input": "command=python build_full.py --workers 4"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "user",
+          "ts": "2026-10-05T09:10:00+00:00",
+          "sidechain": false,
+          "text": "",
+          "tools": [],
+          "errors": [
+            "error: no such file or directory: 'build_full.py' Build failed after 812 ms"
+          ]
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:12:00+00:00",
+          "sidechain": false,
+          "text": "The build script is missing, so the toolchain cannot build. This is a blocker.\n\nRemaining work:\n- TODO: locate the real build entry point\n- confirm whether the 1991 byte header is padded\n- re-run tests against docs/BASELINE.md",
+          "tools": [
+            {
+              "name": "Glob",
+              "input": "pattern=**/build*.py"
+            }
+          ],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "id": "99999999-8888-7777-6666-555555555555",
+      "file": "C:\\Users\\ImPro\\Desktop\\claude-memory\\tests\\fixtures\\fixture_root\\projects\\-C-testproj\\99999999-8888-7777-6666-555555555555.jsonl",
+      "cwd": "C:/testproj",
+      "branch": "main",
+      "model": "claude-sonnet-4-5",
+      "claude_code_version": "2.0.14",
+      "start": "2026-10-05T09:00:00+00:00",
+      "end": "2026-10-05T09:09:00+00:00",
+      "duration_seconds": 540.0,
+      "turns": 5,
+      "tool_calls": 2,
+      "records_skipped": 2,
+      "summaries": [
+        "Added --since/--history to claude_memory.py; verified malformed-line tolerance. Default budget 14000 chars."
+      ],
+      "prompts": [
+        "Add a --since filter and history rotation to the memory tool.",
+        "Does it handle a malformed jsonl line?"
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "ts": "2026-10-05T09:00:00+00:00",
+          "sidechain": false,
+          "text": "Add a --since filter and history rotation to the memory tool.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:01:00+00:00",
+          "sidechain": false,
+          "text": "Straightforward. I prefer argparse with a dataclass config so the tests can build Options directly.\n\n- add parse_since() handling 30m / 7d / YYYY-MM-DD\n- keep the newest N sessions, oldest dropped\n- archive previous MEMORY.md under MEMORY.history/",
+          "tools": [
+            {
+              "name": "Write",
+              "input": "file_path=C:\\testproj\\claude_memory.py"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:04:00+00:00",
+          "sidechain": false,
+          "text": "Version 1.0.0 now emits roughly 14000 chars, which is about 3500 tokens. That keeps the file readable in a CLAUDE.md import without blowing the context window.",
+          "tools": [
+            {
+              "name": "Edit",
+              "input": "file_path=C:\\testproj\\claude_memory.py"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "user",
+          "ts": "2026-10-05T09:07:00+00:00",
+          "sidechain": false,
+          "text": "Does it handle a malformed jsonl line?",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:08:00+00:00",
+          "sidechain": false,
+          "text": "Yes — the reader catches json.JSONDecodeError per line and skips it, so one bad record cannot lose the whole session. Note that a truncated tail is also tolerated; only --max-file-bytes triggers the tail-only read.",
+          "tools": [],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "file": "C:\\Users\\ImPro\\Desktop\\claude-memory\\tests\\fixtures\\fixture_root\\projects\\-C-alpha-srv\\aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jsonl",
+      "cwd": "C:/alpha/srv",
+      "branch": "main",
+      "model": "claude-sonnet-4-5",
+      "claude_code_version": "2.0.14",
+      "start": "2026-10-05T09:00:00+00:00",
+      "end": "2026-10-05T09:09:00+00:00",
+      "duration_seconds": 540.0,
+      "turns": 3,
+      "tool_calls": 1,
+      "records_skipped": 0,
+      "summaries": [],
+      "prompts": [
+        "Use the explore agent to find every place that hardcodes a packet size."
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "ts": "2026-10-05T09:00:00+00:00",
+          "sidechain": false,
+          "text": "Use the explore agent to find every place that hardcodes a packet size.",
+          "tools": [],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:01:00+00:00",
+          "sidechain": false,
+          "text": "Launching a subagent.",
+          "tools": [
+            {
+              "name": "Task",
+              "input": "explore: find hardcoded packet sizes"
+            }
+          ],
+          "errors": []
+        },
+        {
+          "role": "assistant",
+          "ts": "2026-10-05T09:09:00+00:00",
+          "sidechain": true,
+          "text": "Subagent found 3 sites: src/net/packet.cpp:212 uses 32, src/net/queue.cpp:88 uses 64, and src/net/session.cpp:41 uses 128 bytes. Note the 0x20 / 0x40 / 0x80 pattern.",
+          "tools": [],
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

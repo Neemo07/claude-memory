@@ -1,0 +1,64 @@
+{
+  "uuid": "share-branch-0001",
+  "snapshot_name": "Branching share fixture",
+  "created_at": "2026-10-03T08:00:00.000Z",
+  "updated_at": "2026-10-03T08:20:00.000Z",
+  "chat_messages": [
+    {
+      "uuid": "m1",
+      "parent_message_uuid": null,
+      "index": 0,
+      "sender": "human",
+      "created_at": "2026-10-03T08:01:00.000Z",
+      "content": [
+        { "type": "text", "text": "We must choose one rendering approach." }
+      ]
+    },
+    {
+      "uuid": "m2",
+      "parent_message_uuid": "m1",
+      "index": 1,
+      "sender": "assistant",
+      "created_at": "2026-10-03T08:02:00.000Z",
+      "content": [
+        { "type": "text", "text": "We decided to use Markdig. Hidden text must never appear." },
+        { "type": "text", "text": "This block is hidden.", "hidden_in_chat": true },
+        { "type": "thinking", "thinking": "Thinking blocks stay excluded by default." },
+        { "type": "tool_use", "id": "s1", "name": "bash_tool", "input": { "command": "dotnet test" } }
+      ]
+    },
+    {
+      "uuid": "m3",
+      "parent_message_uuid": "m2",
+      "index": 2,
+      "sender": "human",
+      "created_at": "2026-10-03T08:03:00.000Z",
+      "content": [
+        { "type": "text", "text": "Show the abandoned and active branches." }
+      ]
+    },
+    {
+      "uuid": "m4a",
+      "parent_message_uuid": "m3",
+      "index": 3,
+      "sender": "assistant",
+      "created_at": "2026-10-03T08:04:00.000Z",
+      "content": [
+        { "type": "text", "text": "ABANDONED BRANCH: this reply must not be imported." }
+      ],
+      "compaction_summary": null
+    },
+    {
+      "uuid": "m4b",
+      "parent_message_uuid": "m3",
+      "index": 4,
+      "sender": "assistant",
+      "created_at": "2026-10-03T08:05:00.000Z",
+      "content": [
+        { "type": "text", "text": "ACTIVE BRANCH: the preview stays read-only." },
+        { "type": "tool_result", "is_error": true, "content": "Error: preview crashed with a null reference" }
+      ],
+      "compaction_summary": { "summary": "The active branch settled on a read-only preview." }
+    }
+  ]
+}
