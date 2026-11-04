@@ -14,6 +14,15 @@ internal static class Golden
 
     private static readonly Regex GeneratedLine = new(@"^_Generated .*_$", RegexOptions.Compiled);
 
+    // The reference stamps the run time into every mode. The transcript and JSON modes do not
+    // put it on a "_Generated ..._" line, so any bare UTC instant is normalised too.
+    private static readonly Regex IsoUtcInstant = new(
+        @"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", RegexOptions.Compiled);
+
+    private static readonly Regex JsonGenerated = new("\"generated\": \"[^\"]*\"", RegexOptions.Compiled);
+
+    private static readonly Regex JsonTool = new("\"tool\": \"[^\"]*\"", RegexOptions.Compiled);
+
     public static string Normalise(string text)
     {
         var lf = text.Replace("\r\n", "\n").Replace('\r', '\n');
@@ -30,7 +39,26 @@ internal static class Golden
             if (GeneratedLine.IsMatch(lines[index])) lines[index] = GeneratedPlaceholder;
         }
 
-        return string.Join("\n", lines);
+        return IsoUtcInstant.Replace(string.Join("\n", lines), "<time>");
+    }
+
+    /// <summary>
+    /// Normalises a JSON document: the fixture root (in raw and backslash-escaped form) plus the
+    /// two volatile identity fields, <c>generated</c> and <c>tool</c> (IMPLEMENTATION_PLAN.md section 2).
+    /// The layout and every other value still have to match exactly.
+    /// </summary>
+    public static string NormaliseJson(string text)
+    {
+        var lf = text.Replace("\r\n", "\n").Replace('\r', '\n');
+
+        var root = TestPaths.FixtureRoot;
+        foreach (var variant in new[] { root, root.Replace('\\', '/'), root.Replace("\\", "\\\\") })
+        {
+            lf = lf.Replace(variant, "<root>", StringComparison.OrdinalIgnoreCase);
+        }
+
+        lf = JsonGenerated.Replace(lf, "\"generated\": \"<normalised>\"");
+        return JsonTool.Replace(lf, "\"tool\": \"<normalised>\"");
     }
 
     /// <summary>Builds a readable first-difference report for a failing parity assertion.</summary>

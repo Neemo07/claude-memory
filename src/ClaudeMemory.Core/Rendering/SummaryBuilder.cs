@@ -88,7 +88,7 @@ public static class SummaryBuilder
         return "(unknown cwd)";
     }
 
-    private static List<string> RenderHeader(IReadOnlyList<Session> sessions, MemoryOptions opts, DateTimeOffset now)
+    internal static List<string> RenderHeader(IReadOnlyList<Session> sessions, MemoryOptions opts, DateTimeOffset now)
     {
         var turns = sessions.Sum(session => session.Turns.Count);
         var prompts = sessions.Sum(session => session.Prompts().Count);
@@ -141,7 +141,7 @@ public static class SummaryBuilder
         return lines;
     }
 
-    private static List<string> RenderSessions(IReadOnlyList<Session> sessions, MemoryOptions opts)
+    internal static List<string> RenderSessions(IReadOnlyList<Session> sessions, MemoryOptions opts)
     {
         var lines = new List<string>
         {
@@ -169,7 +169,7 @@ public static class SummaryBuilder
         return lines;
     }
 
-    private static List<string> RenderSummaries(IReadOnlyList<Session> sessions, MemoryOptions opts)
+    internal static List<string> RenderSummaries(IReadOnlyList<Session> sessions, MemoryOptions opts)
     {
         var items = sessions.Where(session => session.Summaries.Count > 0).ToList();
         if (items.Count == 0) return new List<string>();
@@ -227,7 +227,7 @@ public static class SummaryBuilder
         return rendered;
     }
 
-    private static List<string> RenderClaims(string title, string hint, IReadOnlyList<Session> sessions,
+    internal static List<string> RenderClaims(string title, string hint, IReadOnlyList<Session> sessions,
         Regex regex, Budget budget, MemoryOptions opts, int limit, HashSet<string> seen)
     {
         var candidates = Claims(sessions, regex, opts);
@@ -277,7 +277,7 @@ public static class SummaryBuilder
         return found;
     }
 
-    private static List<string> RenderFiles(FileFacts facts, Budget budget, MemoryOptions opts,
+    internal static List<string> RenderFiles(FileFacts facts, Budget budget, MemoryOptions opts,
         IReadOnlyList<Session> sessions)
     {
         var lines = new List<string>();
@@ -381,7 +381,7 @@ public static class SummaryBuilder
         return lines;
     }
 
-    private static List<string> RenderNextSteps(IReadOnlyList<Session> sessions, Budget budget,
+    internal static List<string> RenderNextSteps(IReadOnlyList<Session> sessions, Budget budget,
         MemoryOptions opts, HashSet<string> seen)
     {
         var todos = new List<string>();

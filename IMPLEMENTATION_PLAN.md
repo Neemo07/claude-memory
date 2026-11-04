@@ -61,7 +61,7 @@ Dependency rule: `App -> Core`, `Cli -> Core`, `Core` has no UI, registry, conso
 
 Normalisation allowed in golden comparison only:
 
-1. The `_Generated ..._` header line (timestamp and generator identity).
+1. The run timestamp and generator identity: the `_Generated ..._` header line, the transcript's `... generated <instant>_` line, and the JSON `generated` field.
 2. The `tool` field in JSON mode.
 3. Absolute paths of the fixture root.
 4. Line endings (`\r\n` vs `\n`) are normalised to `\n`.
@@ -77,6 +77,7 @@ Recorded here so a reviewer can tell a bug from a decision.
 3. `parse_ts` keeps the original UTC offset, as the reference does, instead of normalising to UTC.
 4. `fmt_cwd` normalises separators only. Python's `Path()` also collapses `.` components; a transcript `cwd` never contains them.
 5. `discover` sorts files whose timestamp cannot be read as `DateTime.MinValue`; the reference would raise `OSError`.
+6. `build_transcript` interpolates `s.end` directly, so the reference raises when a session has a start but no end. The C# port reuses `s.start`, keeping the renderer total for truncated transcripts.
 
 ## 3. Dependencies
 
