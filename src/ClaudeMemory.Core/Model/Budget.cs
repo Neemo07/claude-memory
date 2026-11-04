@@ -66,4 +66,15 @@ public sealed class Budget
         Used += cost;
         return true;
     }
+
+    /// <summary>
+    /// Charges lines that are never trimmed. The reference adds
+    /// <c>sum(len(line) + 1 for line in out)</c> before the trimmed sections render, so a
+    /// large header/session table cannot blow <c>--max-chars</c> for free
+    /// (claude_memory.py:1520).
+    /// </summary>
+    public void ChargeUncut(IEnumerable<string> lines)
+    {
+        foreach (var line in lines) Used += line.Length + 1;
+    }
 }

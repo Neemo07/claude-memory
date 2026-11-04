@@ -61,4 +61,16 @@ public sealed class BudgetTests
         Assert.Equal(2, budget.Trimmed);
         Assert.Equal(196, budget.Used);
     }
+
+    [Fact]
+    public void ChargeUncut_AddsEveryLineWithoutTrimming()
+    {
+        var budget = new Budget(10);
+
+        budget.ChargeUncut(new[] { "abcd", "" });
+
+        // (4 + 1) + (0 + 1)
+        Assert.Equal(6, budget.Used);
+        Assert.Equal(0, budget.Trimmed);
+    }
 }

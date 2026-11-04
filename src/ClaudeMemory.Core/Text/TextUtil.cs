@@ -13,7 +13,9 @@ public static class TextUtil
 
     private static readonly Regex WhitespaceRun = new(@"\s+", RegexOptions.Compiled);
 
-    private static readonly Regex BulletPrefix = new(@"^\s*(?:[-*+]|\d+[.)])\s+", RegexOptions.Compiled);
+    // claude_memory.py:86 (RX_BULLET). The bullet set includes U+2022, which the
+    // reference treats as a list marker in both sentences() and the plan section.
+    private static readonly Regex BulletPrefix = new(@"^\s*(?:[-*+\u2022]|\d+[.)])\s+", RegexOptions.Compiled);
 
     // claude_memory.py:411. The lookahead set includes Latin, backtick, quotes,
     // Arabic ranges, a digit, an em dash and a hyphen.
@@ -179,19 +181,29 @@ public static class TextUtil
         return key.Length <= 120 ? key : key[..120];
     }
 
+    /// <summary>Removes a leading list marker and surrounding space (claude_memory.py:409).</summary>
+    public static string StripBullet(string line) => BulletPrefix.Replace(line, "", 1);
+
+    /// <summary>True when the line starts with a list marker (claude_memory.py:408).</summary>
+    public static bool IsBullet(string line) => BulletPrefix.IsMatch(line);
+
+    /// <summary>Trailing-whitespace strip matching Python's <c>str.rstrip()</c>.</summary>
+    public static string Rstrip(string line) => line.TrimEnd();
+
     /// <summary>
     /// Splits like Python's <c>str.splitlines()</c>: CR, LF, CRLF, vertical tab, form feed,
     /// file/group/record separators, NEL and the Unicode line/paragraph separators.
     /// </summary>
-    private static IEnumerable<string> SplitLines(string text)
+    public static IReadOnlyList<string> SplitLines(string text)
     {
+        var lines = new List<string>();
         var start = 0;
         for (var index = 0; index < text.Length; index++)
         {
             var current = text[index];
             if (current == '\r')
             {
-                yield return text[start..index];
+                lines.Add(text[start..index]);
                 if (index + 1 < text.Length && text[index + 1] == '\n') index++;
                 start = index + 1;
             }
@@ -199,11 +211,12 @@ public static class TextUtil
                      || current == '\x1d' || current == '\x1e' || current == '\x85'
                      || current == '\u2028' || current == '\u2029')
             {
-                yield return text[start..index];
+                lines.Add(text[start..index]);
                 start = index + 1;
             }
         }
 
-        if (start < text.Length) yield return text[start..];
+        if (start < text.Length) lines.Add(text[start..]);
+        return lines;
     }
 }

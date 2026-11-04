@@ -70,12 +70,21 @@ public sealed class MemoryOptions
 
     public bool OnlyShare { get; set; }
 
-    /// <summary>Mirrors <c>DEFAULT_ROOT</c> (claude_memory.py:39-40): <c>&lt;home&gt;/.claude</c>.</summary>
-    public static string DefaultRoot()
+    /// <summary>
+    /// Home directory used by <c>fmt_cwd</c> to shorten paths to <c>~/...</c>
+    /// (claude_memory.py:39).
+    /// </summary>
+    public string Home { get; set; } = DefaultHome();
+
+    /// <summary>Mirrors <c>HOME</c> (claude_memory.py:39).</summary>
+    public static string DefaultHome()
     {
         var home = Environment.GetEnvironmentVariable("USERPROFILE");
         if (string.IsNullOrEmpty(home)) home = Environment.GetEnvironmentVariable("HOME");
         if (string.IsNullOrEmpty(home)) home = Environment.CurrentDirectory;
-        return System.IO.Path.Combine(home, ".claude");
+        return home;
     }
+
+    /// <summary>Mirrors <c>DEFAULT_ROOT</c> (claude_memory.py:39-40): <c>&lt;home&gt;/.claude</c>.</summary>
+    public static string DefaultRoot() => System.IO.Path.Combine(DefaultHome(), ".claude");
 }
