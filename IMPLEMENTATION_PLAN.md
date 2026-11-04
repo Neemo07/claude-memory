@@ -84,6 +84,7 @@ Recorded here so a reviewer can tell a bug from a decision.
 9. `fetch_share`'s 404-specific `raise` is unreachable in the reference (the retry filter breaks first), so it is not ported; a 404 reports the final `could not read share link after N attempts: HTTP 404 …` message.
 10. An IO failure while reading the previous history copy or writing the output is reported as `[claude-memory] {message}` with exit 1. The reference lets the `OSError` escape as a traceback; the exit code is the same and no stack trace reaches the user.
 11. The CLI help golden stores `%DEFAULT_ROOT%` instead of this machine's home directory, so `tests/golden/cli-help.txt` is machine-independent. The test substitutes `MemoryOptions.DefaultRoot()` (claude_memory.py:39-40).
+12. The desktop number fields fall back on unparseable input like `as_int` (gui.py:895), but only accept a leading sign around decimal digits. Python's `int()` also accepts underscores, surrounding whitespace and non-ASCII digits; an `<input type="number">` cannot produce those, so the UI never reaches the difference.
 
 ## 3. Dependencies
 
@@ -203,16 +204,35 @@ Gate: CLI parity signed off; this becomes the oracle after Python removal.
 
 Scope: `ClaudeMemory.App/*` excluding preview and shell integration.
 
+Files:
+
+- `App.xaml` / `App.xaml.cs` — dark theme resources, window startup, `claude-memory-error.log` + fatal dialog beside the executable.
+- `MainWindow.xaml` / `.xaml.cs` — left options column with pinned Generate, right toolbar/status/output; code-behind only for the first scan and window-close cancellation.
+- `ViewModels/ObservableObject.cs`, `RelayCommand.cs` — 40-line command/notification pair; no MVVM toolkit.
+- `ViewModels/MainViewModel.cs` — source/filter/output/save state, busy flag, status line, every user action and its reference wording.
+- `ViewModels/SessionRow.cs` — one scan-table row (`when`, `folder`, `turns`).
+- `Services/BuildRequest.cs`, `BuildPipeline.cs` — the `/api/build` payload and the `do_build` port.
+- `Services/SessionScanner.cs` — the `do_scan` port.
+- `Services/IUserServices.cs`, `WindowsUserServices.cs` — file dialogs, clipboard, folder reveal, dialogs, split out so tests never touch a window.
+
 Work:
 
-- Dark modern layout per PRD §6; left options column, pinned Generate, right toolbar/status/output.
-- Bindings for source, filters, output options, save options, scan table.
-- Async generate with busy state and cancellation; status text from the reference stats string.
-- Save / Save As / Folder / Copy / Copy for CLAUDE.md; source view.
-- Startup crash log + dialog; WebView2-missing state deferred to Phase 7 but designed for.
-- Keyboard: `Ctrl+O`, `Ctrl+S`, `Ctrl+Enter` (generate), `Esc` cancels dialogs.
+- Dark layout per PRD §6: 360 px scrollable options column, Generate pinned at the bottom, toolbar, status line and source view on the right; custom ComboBox template because the system template paints a light selection box.
+- Bindings for source (local / both / share-only with the hidden share box), filters, all output options, save folder/name/history, and the scan table.
+- Async generate with `CancellationToken`, indeterminate progress, disabled actions, and a Cancel button; the status line uses the reference stats string and the reference success, warning and error wording.
+- Save / Save As / Folder / Copy / Copy for CLAUDE.md through `SaveService`/`PathPolicy`, including history archiving and the single-wrap CLAUDE.md block.
+- `Preview MD` and `Open MD...` are present but disabled until Phase 7; the source view is always visible.
+- Startup crash log and dialog; recoverable failures stay in the status line.
+- Keyboard: `Ctrl+Enter` generates, `Ctrl+S` saves, `Ctrl+O` is bound to the Phase 7 open command, `Esc` closes dialogs.
 
-Tests: `MainViewModel` state transitions with fake services (idle→busy→done/error/cancelled), button enablement, status messages, option mapping, save validation. Manual launch check with screenshots.
+Tests (`ClaudeMemory.App.Tests`, 44 cases):
+
+- `MainViewModel` state machine: idle → busy → done / error / cancelled, status text and kind, command enablement before, during and after a run, previous output preserved on failure.
+- Option mapping to `BuildRequest`, exclusive source radios, share-box visibility, local-filter enablement, mode hint, history count.
+- Save to the configured folder, history archiving, refused names, Save As chosen/cancelled, folder reveal without writing, clipboard success/blocked, CLAUDE.md wrap idempotence, scan ordering and empty state.
+- `BuildPipeline` parity with a replay of the CLI stages for all four modes on the fixture corpus (text, session count and stats shape identical), option fallbacks, the exact GUI error strings, saved-share import, and the no-network share guards.
+
+Manual verification on this machine: launched the Release build, confirmed the window title, root label, scan table, dark theme, and the red "Nothing to summarise." status on an empty profile; then ran the full Generate → Save flow against a scratch `USERPROFILE` holding the fixture corpus and confirmed the stats line, the source view, and a written `Documents/MEMORY.md` (896 bytes). No crash log was produced.
 
 Gate: `dotnet build` + view-model tests + manual window check.
 

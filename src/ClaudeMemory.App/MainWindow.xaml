@@ -3,10 +3,313 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:ClaudeMemory.App"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="claude-memory"
+        Height="860" Width="1280" MinHeight="600" MinWidth="900"
+        Background="{StaticResource WindowBrush}"
+        WindowStartupLocation="CenterScreen">
+    <Window.InputBindings>
+        <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding GenerateCommand}" />
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand}" />
+        <!-- Reserved for the Phase 7 preview host; the command is disabled today. -->
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenMarkdownCommand}" />
+    </Window.InputBindings>
 
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center"
+                           Foreground="{StaticResource DimBrush}" FontSize="11"
+                           TextTrimming="CharacterEllipsis" MaxWidth="520"
+                           Text="{Binding RootLabel}"
+                           ToolTip="{Binding RootLabel}" />
+                <TextBlock FontSize="15" FontWeight="SemiBold" Text="claude-memory" />
+                <TextBlock Margin="10,0,0,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource DimBrush}" FontSize="11"
+                           Text="Claude Code sessions + claude.ai share links &#8594; one markdown memory" />
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" MinWidth="320" MaxWidth="420" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left column: options, Generate pinned to the bottom (PRD 6). -->
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Bottom" Background="{StaticResource PanelBrush}"
+                            BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0"
+                            Padding="14,10">
+                        <StackPanel>
+                            <ProgressBar IsIndeterminate="True" Margin="0,0,0,8"
+                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource AccentButton}"
+                                        Content="Generate memory"
+                                        Command="{Binding GenerateCommand}"
+                                        AutomationProperties.Name="Generate memory" />
+                                <Button Grid.Column="1" Margin="8,0,0,0" Content="Cancel"
+                                        Command="{Binding CancelCommand}"
+                                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                                        AutomationProperties.Name="Cancel" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,12">
+                        <StackPanel>
+                            <!-- Source -->
+                            <TextBlock Style="{StaticResource SectionHeader}" Text="Source" />
+                            <RadioButton GroupName="src" Content="Local Claude Code sessions"
+                                         IsChecked="{Binding SourceLocal, Mode=TwoWay}" />
+                            <RadioButton GroupName="src" Content="Local + a shared link"
+                                         IsChecked="{Binding SourceBoth, Mode=TwoWay}" />
+                            <RadioButton GroupName="src" Content="Only a shared link"
+                                         IsChecked="{Binding SourceShareOnly, Mode=TwoWay}" />
+
+                            <StackPanel Margin="0,6,0,0"
+                                        Visibility="{Binding ShowShareOptions, Converter={StaticResource BoolToVis}}">
+                                <Label Content="Shared chat link - paste it here" />
+                                <TextBox Text="{Binding ShareUrl, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="https://claude.ai/share/xxxx-..." />
+                                <Label Margin="0,6,0,0" Content="...or a saved payload file" />
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Margin="6,0,0,0" Content="Browse..."
+                                            Command="{Binding BrowseShareFileCommand}"
+                                            AutomationProperties.Name="Browse for a saved share payload" />
+                                    <TextBox Text="{Binding ShareFile, UpdateSourceTrigger=PropertyChanged}" />
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource Hint}"
+                                           Text="No link? Open the share page, DevTools &#8594; Network &#8594; filter chat_snapshots &#8594; Copy response &#8594; save it as .json, then press Browse..." />
+                            </StackPanel>
+
+                            <!-- Which sessions -->
+                            <TextBlock Style="{StaticResource SectionHeader}" Margin="0,16,0,6"
+                                       Text="Which sessions" />
+                            <CheckBox Content="This folder only" IsChecked="{Binding Here}"
+                                      IsEnabled="{Binding LocalFiltersEnabled}" />
+                            <Grid Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <Label Content="Window" />
+                                    <TextBox Text="{Binding Since, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding LocalFiltersEnabled}"
+                                             ToolTip="30d / 12h / 2026-10-01" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <Label Content="Max sessions (0 = all)" />
+                                    <TextBox Text="{Binding MaxSessions, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding LocalFiltersEnabled}" />
+                                </StackPanel>
+                            </Grid>
+                            <Label Margin="0,8,0,0" Content="Path contains (optional)" />
+                            <TextBox Text="{Binding Cwd, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding LocalFiltersEnabled}"
+                                     ToolTip="leave empty for all projects" />
+
+                            <Label Margin="0,10,0,0" Content="Found on this machine" />
+                            <Grid>
+                                <ListView MaxHeight="150" ItemsSource="{Binding Sessions}"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                          Visibility="{Binding HasSessions, Converter={StaticResource BoolToVis}}">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem"
+                                               BasedOn="{StaticResource {x:Type ListViewItem}}">
+                                            <Setter Property="ToolTip" Value="{Binding File}" />
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="when" Width="110"
+                                                            DisplayMemberBinding="{Binding When}" />
+                                            <GridViewColumn Header="folder" Width="150"
+                                                            DisplayMemberBinding="{Binding Folder}" />
+                                            <GridViewColumn Header="turns" Width="50"
+                                                            DisplayMemberBinding="{Binding Turns}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                                <TextBlock Margin="6,6,0,0" VerticalAlignment="Top"
+                                           Style="{StaticResource Hint}"
+                                           Text="none found yet - run a Claude Code session first"
+                                           Visibility="{Binding HasSessions, Converter={StaticResource InverseBoolToVis}}" />
+                            </Grid>
+
+                            <!-- Output -->
+                            <TextBlock Style="{StaticResource SectionHeader}" Margin="0,16,0,6"
+                                       Text="Output" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <Label Content="Kind" />
+                                    <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Mode}">
+                                        <ComboBoxItem Content="memory (summary)" Tag="memory" />
+                                        <ComboBoxItem Content="memory (full context)" Tag="full" />
+                                        <ComboBoxItem Content="transcript (raw chat)" Tag="transcript" />
+                                        <ComboBoxItem Content="json (structured)" Tag="json" />
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <Label Content="Wrapping" />
+                                    <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Format}">
+                                        <ComboBoxItem Content="plain markdown" Tag="plain" />
+                                        <ComboBoxItem Content="CLAUDE.md markers" Tag="claude-md" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                            <Label Margin="0,8,0,0" Content="Language" />
+                            <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Lang}">
+                                <ComboBoxItem Content="auto-detect" Tag="auto" />
+                                <ComboBoxItem Content="English" Tag="en" />
+                                <ComboBoxItem Content="Arabic" Tag="ar" />
+                                <ComboBoxItem Content="Bilingual (EN + AR)" Tag="both" />
+                            </ComboBox>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <Label Content="Max chars (summary parts)" />
+                                    <TextBox Text="{Binding MaxChars, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <Label Content="Max items/section" />
+                                    <TextBox Text="{Binding MaxItems, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Hint}" Text="{Binding ModeHint}" />
+                            <CheckBox Margin="0,8,0,0" Content="Include thinking blocks"
+                                      IsChecked="{Binding IncludeThinking}" />
+                            <CheckBox Content="Drop subagent turns"
+                                      IsChecked="{Binding DropSidechains}" />
+                            <CheckBox Content="ASCII only (no box glyphs)"
+                                      IsChecked="{Binding AsciiOnly}" />
+
+                            <!-- Save to disk -->
+                            <TextBlock Style="{StaticResource SectionHeader}" Margin="0,16,0,6"
+                                       Text="Save to disk" />
+                            <Label Content="Folder" />
+                            <TextBox Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Defaults to the Documents folder" />
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="{Binding DefaultOutputFolder}" />
+                            <Label Margin="0,8,0,0" Content="File name" />
+                            <TextBox Text="{Binding OutputName, UpdateSourceTrigger=PropertyChanged}" />
+                            <CheckBox Margin="0,8,0,0" Content="Keep 5 previous versions"
+                                      IsChecked="{Binding KeepHistory}" />
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="Save"
+                                        Command="{Binding SaveCommand}"
+                                        AutomationProperties.Name="Save" />
+                                <Button Grid.Column="2" Content="Folder"
+                                        Command="{Binding OpenFolderCommand}"
+                                        AutomationProperties.Name="Open output folder" />
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Right column: toolbar, status, output surface. -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Padding="12,8" Background="{StaticResource WindowBrush}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Preview MD" Command="{Binding PreviewCommand}"
+                                AutomationProperties.Name="Preview markdown" />
+                        <Button Margin="6,0,0,0" Content="Open MD..."
+                                Command="{Binding OpenMarkdownCommand}"
+                                AutomationProperties.Name="Open a markdown file" />
+                        <Button Margin="6,0,0,0" Content="Copy" Command="{Binding CopyCommand}"
+                                AutomationProperties.Name="Copy output" />
+                        <Button Margin="6,0,0,0" Content="Save As..."
+                                Command="{Binding SaveAsCommand}"
+                                AutomationProperties.Name="Save As" />
+                        <Button Margin="6,0,0,0" Content="Copy for CLAUDE.md"
+                                Command="{Binding CopyClaudeCommand}"
+                                AutomationProperties.Name="Copy for CLAUDE.md" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="1" Padding="12,0,12,8" Background="{StaticResource WindowBrush}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"
+                                   AutomationProperties.LiveSetting="Polite"
+                                   AutomationProperties.Name="Status">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+                                    <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StatusKind}" Value="Ok">
+                                            <Setter Property="Foreground" Value="{StaticResource OkBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding StatusKind}" Value="Warn">
+                                            <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding StatusKind}" Value="Error">
+                                            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Margin="0,2,0,0" FontSize="11"
+                                   Foreground="{StaticResource DimBrush}"
+                                   TextWrapping="Wrap" Text="{Binding Stats}" />
+                    </StackPanel>
+                </Border>
+
+                <Grid Grid.Row="2" Margin="12,0,12,12">
+                    <TextBox IsReadOnly="True" TextWrapping="NoWrap" AcceptsReturn="True"
+                             FontFamily="{StaticResource MonoFont}" FontSize="12"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             Text="{Binding OutputText, Mode=OneWay}"
+                             AutomationProperties.Name="Generated output"
+                             Visibility="{Binding HasOutput, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Margin="16" VerticalAlignment="Top" TextWrapping="Wrap"
+                               FontSize="13"
+                               Foreground="{StaticResource DimBrush}"
+                               Visibility="{Binding HasOutput, Converter={StaticResource InverseBoolToVis}}"
+                               Text="Press Generate memory to build a memory file from your Claude Code sessions and any shared claude.ai link." />
+                </Grid>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>
