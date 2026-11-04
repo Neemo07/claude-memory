@@ -1,4 +1,5 @@
 using System.IO;
+using ClaudeMemory.App.Preview;
 using ClaudeMemory.App.Services;
 using ClaudeMemory.App.ViewModels;
 
@@ -34,6 +35,13 @@ public sealed class MainViewModelTests
             }),
         };
 
+    private static async Task<MainViewModel> GeneratedModel(string text)
+    {
+        var model = NewModel(PipelineReturning(text));
+        await model.GenerateAsync();
+        return model;
+    }
+
     [Fact]
     public void Initial_state_is_idle_with_no_output_and_the_preview_reserved()
     {
@@ -52,9 +60,15 @@ public sealed class MainViewModelTests
         Assert.False(model.CopyClaudeCommand.CanExecute(null));
         Assert.True(model.OpenFolderCommand.CanExecute(null));
 
-        // Phase 7 placeholders must exist but stay disabled.
-        Assert.False(model.PreviewCommand.CanExecute(null));
-        Assert.False(model.OpenMarkdownCommand.CanExecute(null));
+        // Phase 7 wires the preview commands to real handlers.
+        Assert.True(model.PreviewCommand.CanExecute(null));
+        Assert.True(model.OpenMarkdownCommand.CanExecute(null));
+        Assert.False(model.PreviewVisible);
+        Assert.False(model.ShowSourceView);
+        Assert.True(model.ShowEmptyState);
+        Assert.Equal("Preview MD", model.PreviewLabel);
+        Assert.True(model.PreviewHostAvailable);
+        Assert.Equal("", model.PreviewHtml);
     }
 
     [Fact]
@@ -458,6 +472,202 @@ public sealed class MainViewModelTests
         dialogs.OpenResult = null;
         model.BrowseShareFile();
         Assert.Equal("no file chosen - nothing changed", model.StatusMessage);
+    }
+
+    [Fact]
+    public async Task Preview_toggles_the_rendered_document_and_the_source_view()
+    {
+        var model = await GeneratedModel("# Title\n\ntext\n");
+
+        Assert.False(model.PreviewVisible);
+        Assert.True(model.ShowSourceView);
+        Assert.Equal("Preview MD", model.PreviewLabel);
+
+        model.PreviewCommand.Execute(null);
+
+        Assert.True(model.PreviewVisible);
+        Assert.False(model.ShowSourceView);
+        Assert.Equal("Show source", model.PreviewLabel);
+        Assert.Equal("Markdown preview", model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+        Assert.Contains("<h1>Title</h1>", model.PreviewHtml, StringComparison.Ordinal);
+
+        model.PreviewCommand.Execute(null);
+
+        Assert.False(model.PreviewVisible);
+        Assert.True(model.ShowSourceView);
+        Assert.Equal("Preview MD", model.PreviewLabel);
+        Assert.Equal("source view", model.StatusMessage);
+    }
+
+    [Fact]
+    public async Task Preview_refuses_json_output_with_the_reference_wording()
+    {
+        var model = NewModel(PipelineReturning("{\"a\":1}"));
+        model.Mode = "json";
+        await model.GenerateAsync();
+
+        model.PreviewCommand.Execute(null);
+
+        Assert.False(model.PreviewVisible);
+        Assert.Equal(
+            "JSON output is not Markdown - choose memory, full, or transcript",
+            model.StatusMessage);
+        Assert.Equal(StatusKind.Warn, model.StatusKind);
+    }
+
+    [Fact]
+    public void Preview_without_output_opens_the_file_dialog()
+    {
+        var dialogs = new FakeFileDialogService { OpenResult = null };
+        var model = NewModel(dialogs: dialogs);
+
+        model.PreviewCommand.Execute(null);
+
+        // The reference falls through to openMarkdownFile, whose cancel message wins.
+        Assert.Equal("no file chosen - nothing changed", model.StatusMessage);
+        Assert.Equal(StatusKind.Warn, model.StatusKind);
+        Assert.False(model.PreviewVisible);
+    }
+
+    [Fact]
+    public async Task Opening_a_markdown_file_previews_it_and_names_it_in_the_caption()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Opened\n\nbody\n");
+
+        var dialogs = new FakeFileDialogService { OpenResult = path };
+        var model = NewModel(dialogs: dialogs);
+
+        model.OpenMarkdownCommand.Execute(null);
+
+        Assert.True(model.PreviewVisible);
+        Assert.True(model.PreviewIsFile);
+        Assert.Equal("README.md", model.PreviewFileName);
+        Assert.Equal("README.md", model.PreviewCaption);
+        Assert.Equal("reading README.md", model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+        Assert.Contains("<h1>Opened</h1>", model.PreviewHtml, StringComparison.Ordinal);
+        Assert.Equal(DialogFilters.MarkdownPreview, dialogs.LastFilter);
+
+        // Closing a file preview returns the caption to the stats.
+        model.PreviewCommand.Execute(null);
+        Assert.Equal("preview closed", model.StatusMessage);
+        Assert.Equal(model.Stats, model.PreviewCaption);
+    }
+
+    [Fact]
+    public async Task Opening_a_bad_file_reports_the_guard_message_as_an_error()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "notes.txt");
+        File.WriteAllText(path, "text");
+
+        var model = NewModel(dialogs: new FakeFileDialogService { OpenResult = path });
+
+        model.OpenMarkdownCommand.Execute(null);
+
+        Assert.Equal(
+            "cannot open Markdown file: Choose a Markdown file (.md or .markdown).",
+            model.StatusMessage);
+        Assert.Equal(StatusKind.Error, model.StatusKind);
+        Assert.False(model.PreviewVisible);
+    }
+
+    [Fact]
+    public void A_dropped_path_goes_through_the_same_guard()
+    {
+        using var temp = new TempDirectory();
+        var good = Path.Combine(temp.Path, "dropped.markdown");
+        File.WriteAllText(good, "## Dropped\n");
+        var model = NewModel();
+
+        model.OpenMarkdownPath(good);
+
+        Assert.True(model.PreviewVisible);
+        Assert.Equal("dropped.markdown", model.PreviewFileName);
+        Assert.Contains("<h2>Dropped</h2>", model.PreviewHtml, StringComparison.Ordinal);
+
+        model.OpenMarkdownPath(Path.Combine(temp.Path, "missing.md"));
+        Assert.Equal(
+            "cannot open Markdown file: No such file: " + Path.Combine(temp.Path, "missing.md"),
+            model.StatusMessage);
+        Assert.Equal(StatusKind.Error, model.StatusKind);
+    }
+
+    [Fact]
+    public async Task A_missing_preview_host_explains_how_to_install_it()
+    {
+        var model = await GeneratedModel("# Title\n");
+
+        model.SetPreviewHostAvailable(false);
+        Assert.False(model.PreviewHostAvailable);
+
+        model.PreviewCommand.Execute(null);
+
+        Assert.Equal(MainViewModel.PreviewUnavailableMessage, model.StatusMessage);
+        Assert.Equal(StatusKind.Error, model.StatusKind);
+        Assert.False(model.PreviewVisible);
+
+        model.OpenMarkdownCommand.Execute(null);
+        Assert.Equal(MainViewModel.PreviewUnavailableMessage, model.StatusMessage);
+        Assert.Contains("developer.microsoft.com", model.StatusMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void External_links_are_validated_before_the_shell_sees_them()
+    {
+        var shell = new FakeShellService();
+        var model = NewModel(shell: shell);
+
+        model.OpenExternalLink("https://example.test/a");
+        Assert.Equal("https://example.test/a", shell.LastExternal);
+
+        shell.OpenExternalError = new InvalidOperationException("no handler");
+        model.OpenExternalLink("https://example.test/b");
+        Assert.Equal(
+            "could not open link: no handler", model.StatusMessage);
+        Assert.Equal(StatusKind.Warn, model.StatusKind);
+
+        shell.OpenExternalError = null;
+        var previous = shell.LastExternal;
+        model.OpenExternalLink("javascript:alert(1)");
+        model.OpenExternalLink("file:///c:/secret");
+        model.OpenExternalLink("#anchor");
+        model.OpenExternalLink("");
+        Assert.Equal(previous, shell.LastExternal);
+    }
+
+    [Fact]
+    public async Task A_new_generate_closes_the_preview_and_rebuilds_it_on_demand()
+    {
+        var text = "# First\n";
+        var pipeline = new FakeBuildPipeline
+        {
+            Handler = (_, _) => Task.FromResult(new BuildResult
+            {
+                Text = text,
+                Stats = "stats",
+                SessionCount = 1,
+            }),
+        };
+        var model = NewModel(pipeline);
+        await model.GenerateAsync();
+        model.PreviewCommand.Execute(null);
+        Assert.True(model.PreviewVisible);
+        Assert.Contains("<h1>First</h1>", model.PreviewHtml, StringComparison.Ordinal);
+
+        // gui.py:757-758: a fresh build drops back to the source view.
+        text = "# Second\n";
+        await model.GenerateAsync();
+        Assert.False(model.PreviewVisible);
+        Assert.True(model.ShowSourceView);
+
+        model.PreviewCommand.Execute(null);
+
+        Assert.Contains("<h1>Second</h1>", model.PreviewHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<h1>First</h1>", model.PreviewHtml, StringComparison.Ordinal);
     }
 
     private static SessionRow Row(string file, string when) => new()

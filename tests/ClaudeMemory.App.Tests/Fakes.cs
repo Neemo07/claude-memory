@@ -96,7 +96,17 @@ internal sealed class FakeShellService : IShellService
 {
     public string? LastFolder { get; private set; }
 
+    public string? LastExternal { get; private set; }
+
+    public Exception? OpenExternalError { get; set; }
+
     public void RevealFolder(string folder) => LastFolder = folder;
+
+    public void OpenExternal(string url)
+    {
+        LastExternal = url;
+        if (OpenExternalError is not null) throw OpenExternalError;
+    }
 }
 
 /// <summary>Creates and removes a scratch directory for one save test.</summary>

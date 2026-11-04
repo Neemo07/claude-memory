@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
 using System.Windows.Input;
+using ClaudeMemory.App.Preview;
 using ClaudeMemory.App.Services;
 using ClaudeMemory.Core.Services;
 
@@ -77,6 +78,13 @@ public sealed class MainViewModel : ObservableObject
     private string _rootLabel = "";
     private string _defaultOutputFolder = PathPolicy.DefaultOutputDirectory();
 
+    // Preview
+    private string _previewHtml = "";
+    private string _previewFileName = "";
+    private bool _previewVisible;
+    private bool _previewIsFile;
+    private bool _previewHostAvailable = true;
+
     public MainViewModel(
         IBuildPipeline? pipeline = null,
         ISessionScanner? scanner = null,
@@ -103,10 +111,8 @@ public sealed class MainViewModel : ObservableObject
         CopyClaudeCommand = new RelayCommand(CopyClaude, () => HasOutput && !IsBusy);
         BrowseShareFileCommand = new RelayCommand(BrowseShareFile, () => !IsBusy);
         ScanCommand = new AsyncRelayCommand(ScanAsync, () => !IsBusy);
-
-        // Phase 7 wires these to the Markdown preview.
-        PreviewCommand = new RelayCommand(() => { }, () => false);
-        OpenMarkdownCommand = new RelayCommand(() => { }, () => false);
+        PreviewCommand = new RelayCommand(TogglePreview, () => !IsBusy);
+        OpenMarkdownCommand = new RelayCommand(OpenMarkdownFile, () => !IsBusy);
     }
 
     public ObservableCollection<SessionRow> Sessions { get; } = new();
@@ -129,10 +135,10 @@ public sealed class MainViewModel : ObservableObject
 
     public ICommand ScanCommand { get; }
 
-    /// <summary>Reserved for Phase 7; disabled so the toolbar layout is final.</summary>
+    /// <summary>Toggles the Markdown preview, or opens a file when nothing is generated.</summary>
     public ICommand PreviewCommand { get; }
 
-    /// <summary>Reserved for Phase 7; disabled so the toolbar layout is final.</summary>
+    /// <summary>Picks a local Markdown file and shows it in the preview.</summary>
     public ICommand OpenMarkdownCommand { get; }
 
     public MemorySource Source
@@ -285,7 +291,11 @@ public sealed class MainViewModel : ObservableObject
         get => _outputText;
         private set
         {
-            if (Set(ref _outputText, value ?? "")) Raise(nameof(HasOutput));
+            if (!Set(ref _outputText, value ?? "")) return;
+            Raise(nameof(HasOutput));
+            Raise(nameof(ShowSourceView));
+            Raise(nameof(ShowEmptyState));
+            Raise(nameof(PreviewCaption));
         }
     }
 
@@ -294,7 +304,10 @@ public sealed class MainViewModel : ObservableObject
     public string Stats
     {
         get => _stats;
-        private set => Set(ref _stats, value ?? "");
+        private set
+        {
+            if (Set(ref _stats, value ?? "")) Raise(nameof(PreviewCaption));
+        }
     }
 
     public string StatusMessage
@@ -330,6 +343,77 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool HasSessions => Sessions.Count > 0;
+
+    /// <summary>True while the HTML preview replaces the source view (PRD §6).</summary>
+    public bool PreviewVisible
+    {
+        get => _previewVisible;
+        private set
+        {
+            if (!Set(ref _previewVisible, value)) return;
+            Raise(nameof(PreviewLabel));
+            Raise(nameof(ShowSourceView));
+        }
+    }
+
+    /// <summary>The monospace source view shows whenever there is output and no preview.</summary>
+    public bool ShowSourceView => HasOutput && !PreviewVisible;
+
+    /// <summary>The explanatory empty state (gui.py:396-397).</summary>
+    public bool ShowEmptyState => !HasOutput;
+
+    /// <summary>The document the WebView2 host displays; empty until a preview is built.</summary>
+    public string PreviewHtml
+    {
+        get => _previewHtml;
+        private set => Set(ref _previewHtml, value ?? "");
+    }
+
+    /// <summary>File name shown instead of the stats while previewing an opened file.</summary>
+    public string PreviewFileName
+    {
+        get => _previewFileName;
+        private set
+        {
+            if (Set(ref _previewFileName, value ?? "")) Raise(nameof(PreviewCaption));
+        }
+    }
+
+    /// <summary>True when the preview shows an opened file rather than generated output.</summary>
+    public bool PreviewIsFile
+    {
+        get => _previewIsFile;
+        private set
+        {
+            if (!Set(ref _previewIsFile, value)) return;
+            Raise(nameof(PreviewLabel));
+            Raise(nameof(PreviewCaption));
+        }
+    }
+
+    /// <summary>The toolbar button text (gui.py:641-648).</summary>
+    public string PreviewLabel
+        => !PreviewVisible ? "Preview MD" : PreviewIsFile ? "Close preview" : "Show source";
+
+    /// <summary>The reference's <c>#meta</c> line: the file name, or the stats (gui.py:657).</summary>
+    public string PreviewCaption
+        => PreviewIsFile && _previewFileName.Length > 0 ? _previewFileName : Stats;
+
+    /// <summary>
+    /// False when the WebView2 runtime is missing or failed to initialize. The source view
+    /// keeps working and the preview explains how to install it (PRD §9.26).
+    /// </summary>
+    public bool PreviewHostAvailable
+    {
+        get => _previewHostAvailable;
+        private set => Set(ref _previewHostAvailable, value);
+    }
+
+    /// <summary>Shown when the preview host cannot start (PRD §9.26).</summary>
+    public const string PreviewUnavailableMessage =
+        "The preview needs the Microsoft Edge WebView2 Runtime, which is not installed. "
+        + "Install it from https://developer.microsoft.com/microsoft-edge/webview2/ and "
+        + "restart claude-memory. The source view still works.";
 
     /// <summary>Short hint under the Kind selector (gui.py:445-454).</summary>
     public string ModeHint => Mode switch
@@ -374,6 +458,12 @@ public sealed class MainViewModel : ObservableObject
                 .ConfigureAwait(true);
             OutputText = result.Text;
             Stats = result.Stats;
+
+            // Reference parity: a fresh build always drops back to the source view
+            // (gui.py:757-758 sets previewIsFile = false and setPreviewVisible(false)).
+            PreviewIsFile = false;
+            PreviewVisible = false;
+
             SetStatus("done", StatusKind.Ok);
         }
         catch (OperationCanceledException)
@@ -540,6 +630,124 @@ public sealed class MainViewModel : ObservableObject
         SetStatus("selected " + chosen, StatusKind.Ok);
     }
 
+    /// <summary>
+    /// Records whether the WebView2 host could start. Called by the window once, after
+    /// initialization (PRD §9.26).
+    /// </summary>
+    public void SetPreviewHostAvailable(bool available) => PreviewHostAvailable = available;
+
+    /// <summary>Toggles the preview, or opens a file when nothing has been generated.</summary>
+    /// <remarks>
+    /// Ported from gui.py:696-726 (<c>togglePreview</c>): hide first, then refuse JSON, then
+    /// fall through to the file dialog when there is no output.
+    /// </remarks>
+    private void TogglePreview()
+    {
+        if (PreviewVisible)
+        {
+            var wasFile = PreviewIsFile;
+            PreviewVisible = false;
+            PreviewIsFile = false;
+            SetStatus(wasFile ? "preview closed" : "source view", StatusKind.Ok);
+            return;
+        }
+
+        if (!PreviewHostAvailable)
+        {
+            SetStatus(PreviewUnavailableMessage, StatusKind.Error);
+            return;
+        }
+
+        if (!HasOutput)
+        {
+            SetStatus("nothing generated yet - choose a Markdown file", StatusKind.Warn);
+            OpenMarkdownFile();
+            return;
+        }
+
+        if (Mode == "json")
+        {
+            SetStatus(
+                "JSON output is not Markdown - choose memory, full, or transcript",
+                StatusKind.Warn);
+            return;
+        }
+
+        try
+        {
+            PreviewHtml = PreviewHtmlBuilder.BuildDocument(OutputText);
+            PreviewIsFile = false;
+            PreviewVisible = true;
+            SetStatus("Markdown preview", StatusKind.Ok);
+        }
+        catch (Exception error)
+        {
+            SetStatus("preview failed: " + error.Message, StatusKind.Error);
+        }
+    }
+
+    /// <summary>Picks a local Markdown file and previews it (gui.py:674-694).</summary>
+    private void OpenMarkdownFile()
+    {
+        if (!PreviewHostAvailable)
+        {
+            SetStatus(PreviewUnavailableMessage, StatusKind.Error);
+            return;
+        }
+
+        var chosen = _dialogs.PickOpenFile(
+            "README.md", FolderOrDefault(), DialogFilters.MarkdownPreview);
+        if (chosen is null)
+        {
+            SetStatus("no file chosen - nothing changed", StatusKind.Warn);
+            return;
+        }
+
+        OpenMarkdownPath(chosen);
+    }
+
+    /// <summary>
+    /// Reads one Markdown path into the preview. Shared by the Open MD dialog, the window's
+    /// drag/drop handler, and the Phase 8 command-line open.
+    /// </summary>
+    public void OpenMarkdownPath(string path)
+    {
+        if (!PreviewHostAvailable)
+        {
+            SetStatus(PreviewUnavailableMessage, StatusKind.Error);
+            return;
+        }
+
+        try
+        {
+            var file = MarkdownFileReader.Read(path);
+            PreviewHtml = PreviewHtmlBuilder.BuildDocument(file.Text);
+            PreviewFileName = file.Name;
+            PreviewIsFile = true;
+            PreviewVisible = true;
+            SetStatus("reading " + file.Name, StatusKind.Ok);
+        }
+        catch (PreviewException error)
+        {
+            SetStatus("cannot open Markdown file: " + error.Message, StatusKind.Error);
+        }
+    }
+
+    /// <summary>Opens a validated external link, for the preview's navigation guard.</summary>
+    public void OpenExternalLink(string url)
+    {
+        if (!PreviewUrlPolicy.IsExternal(url)) return;
+
+        try
+        {
+            _shell.OpenExternal(url);
+        }
+        catch (Exception error)
+        {
+            SetStatus("could not open link: " + error.Message, StatusKind.Warn);
+        }
+    }
+
     /// <summary>Maps the current controls onto the pipeline request (gui.py:735-752).</summary>
     public BuildRequest BuildRequest() => new()
     {
@@ -610,5 +818,7 @@ public sealed class MainViewModel : ObservableObject
         (CopyCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (CopyClaudeCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (BrowseShareFileCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (PreviewCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (OpenMarkdownCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 }

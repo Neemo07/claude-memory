@@ -12,9 +12,12 @@ ClaudeMemory.App (WPF, net8.0-windows, WinExe)
   MainWindow.xaml(.cs)              layout, drag/drop, WebView2 host, window lifetime
   ViewModels/MainViewModel.cs       command state, status, busy flag, validation
   ViewModels/SessionRow.cs          scan table row
+  Preview/PreviewHtmlBuilder.cs     Markdig + safe-link pass + CSS + CSP
+  Preview/PreviewSanitizer.cs       AST pass: unsafe links, images, raw HTML
+  Preview/PreviewUrlPolicy.cs       scheme allowlist shared with the navigation guard
+  Preview/MarkdownFileReader.cs     local file guards for the preview
   Services/FileDialogService.cs     Open/Save dialogs
   Services/ClipboardService.cs      clipboard with failure result
-  Services/PreviewHtmlBuilder.cs    Markdig + safe-link pass + CSS + CSP
   Services/ShellIntegration.cs      HKCU registration, unregister, Default Apps UI
   Services/SingleInstance.cs        mutex + named pipe
   Services/Dialogs.cs               fatal/recoverable error presentation
@@ -85,6 +88,8 @@ Recorded here so a reviewer can tell a bug from a decision.
 10. An IO failure while reading the previous history copy or writing the output is reported as `[claude-memory] {message}` with exit 1. The reference lets the `OSError` escape as a traceback; the exit code is the same and no stack trace reaches the user.
 11. The CLI help golden stores `%DEFAULT_ROOT%` instead of this machine's home directory, so `tests/golden/cli-help.txt` is machine-independent. The test substitutes `MemoryOptions.DefaultRoot()` (claude_memory.py:39-40).
 12. The desktop number fields fall back on unparseable input like `as_int` (gui.py:895), but only accept a leading sign around decimal digits. Python's `int()` also accepts underscores, surrounding whitespace and non-ASCII digits; an `<input type="number">` cannot produce those, so the UI never reaches the difference.
+13. The preview renders with Markdig + WebView2 instead of the reference's hand-written parser and DOM builder (`markdown_preview.py`, gui.py:499-639). Three visible differences follow from having no page base URL and from PRD §8: a relative link target (`./other.md`, `other.md`, `/root.md`) is refused and shown as literal `[label](target)` where `_safe_href` (markdown_preview.py:267-272) left a scheme-less href in place; images become their alt text instead of `<img>`; an unsafe link's literal text is the flattened label, so inner emphasis is dropped. Everything the reference did render (headings, lists, task lists, quotes, tables, code, rules, strikethrough, autolinks, `dir="rtl"`) still renders.
+14. WebView2 requires a browser profile folder, so the app creates `%LOCALAPPDATA%\claude-memory\webview2` on first preview. The reference's WebKit view had no such state. This is the only write outside the paths listed in AGENTS.md, and it holds no transcript content.
 
 ## 3. Dependencies
 
@@ -238,7 +243,7 @@ Gate: `dotnet build` + view-model tests + manual window check.
 
 ### Phase 7 — Markdown preview
 
-Scope: `PreviewHtmlBuilder.cs`, `MainWindow` preview host, `MarkdownFileReader.cs`, drag/drop, toggle.
+Scope: `Preview/*.cs`, `MainWindow` preview host, drag/drop, toggle.
 
 Work:
 
@@ -251,6 +256,8 @@ Work:
 - Runtime missing → source view remains; show install link.
 
 Tests: XSS corpus (`<script>`, `<iframe>`, `onerror`, `[x](javascript:...)`, `[x](data:...)`, `[x](file:...)`, raw HTML disabled), scheme allowlist, size/empty/NUL rejection, HTML contains CSP and zero `<script>` tags. Manual preview check at 100%/150% DPI.
+
+Manual verification on this machine: launched the Release build against a scratch `USERPROFILE` holding the fixture corpus, pressed Generate (`1 session(s) · 1 prompt(s) · 0 tool call(s) · 888 chars ~222 tokens`), then `Preview MD`; the toolbar label switched to `Show source`, a WebView2 pane appeared in the automation tree, and no error reached the status line. The WebView2 runtime is 148.0.3967.70. Because this session has no interactive desktop, screenshots fail (GDI+) and the renderer's UIA text is not readable, so the rendered page was verified instead with a throwaway WebView2 probe (`%LOCALAPPDATA%\Temp\opencode\preview-probe`) that hosts the exact `PreviewHtmlBuilder.BuildDocument` output: `navigation=success`, `headings=1`, `tables=1`, `checkboxes=2`, `dels=1`, `images=0`, `scripts=0`, the only `href` is `https://example.test/x`, `href="javascript:` is absent, `dir="rtl"` is applied for Arabic content, and the raw `<img onerror>` line appears as escaped text. Visual confirmation at 100% and 150% DPI remains an explicit manual check for the human.
 
 Gate: security tests green; manual preview verified; no scripts in generated HTML.
 

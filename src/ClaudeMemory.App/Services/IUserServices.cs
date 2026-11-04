@@ -21,6 +21,9 @@ public interface IClipboardService
 public interface IShellService
 {
     void RevealFolder(string folder);
+
+    /// <summary>Opens an absolute, already-validated URL in the default browser.</summary>
+    void OpenExternal(string url);
 }
 
 /// <summary>Save-dialog filter for a saved share payload (gui.py:1154).</summary>
@@ -29,4 +32,9 @@ public static class DialogFilters
     public const string SharePayload =
         "Saved share payload (*.json;*.md;*.markdown;*.txt)|*.json;*.md;*.markdown;*.txt"
         + "|All files (*.*)|*.*";
+
+    /// <summary>Open-dialog filter for the Markdown preview (gui.py:41, <c>PREVIEW_TYPES</c>).</summary>
+    public const string MarkdownPreview =
+        "Markdown (*.md;*.markdown)|*.md;*.markdown"
+        + "|Text files (*.txt)|*.txt|All files (*.*)|*.*";
 }

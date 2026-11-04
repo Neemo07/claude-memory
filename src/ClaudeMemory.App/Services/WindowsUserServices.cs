@@ -67,4 +67,7 @@ public sealed class ShellService : IShellService
         Directory.CreateDirectory(folder);
         using var process = Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
     }
+
+    public void OpenExternal(string url)
+        => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
 }

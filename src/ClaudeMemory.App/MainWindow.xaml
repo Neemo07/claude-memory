@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:w2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="claude-memory"
         Height="860" Width="1280" MinHeight="600" MinWidth="900"
@@ -250,7 +251,7 @@
 
                 <Border Grid.Row="0" Padding="12,8" Background="{StaticResource WindowBrush}">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="Preview MD" Command="{Binding PreviewCommand}"
+                        <Button Content="{Binding PreviewLabel}" Command="{Binding PreviewCommand}"
                                 AutomationProperties.Name="Preview markdown" />
                         <Button Margin="6,0,0,0" Content="Open MD..."
                                 Command="{Binding OpenMarkdownCommand}"
@@ -291,23 +292,28 @@
                         </TextBlock>
                         <TextBlock Margin="0,2,0,0" FontSize="11"
                                    Foreground="{StaticResource DimBrush}"
-                                   TextWrapping="Wrap" Text="{Binding Stats}" />
+                                   TextWrapping="Wrap" Text="{Binding PreviewCaption}" />
                     </StackPanel>
                 </Border>
 
-                <Grid Grid.Row="2" Margin="12,0,12,12">
+                <Grid Grid.Row="2" Margin="12,0,12,12" AllowDrop="True"
+                      DragOver="OnDragOver" Drop="OnDrop">
                     <TextBox IsReadOnly="True" TextWrapping="NoWrap" AcceptsReturn="True"
                              FontFamily="{StaticResource MonoFont}" FontSize="12"
                              VerticalScrollBarVisibility="Auto"
                              HorizontalScrollBarVisibility="Auto"
                              Text="{Binding OutputText, Mode=OneWay}"
                              AutomationProperties.Name="Generated output"
-                             Visibility="{Binding HasOutput, Converter={StaticResource BoolToVis}}" />
+                             Visibility="{Binding ShowSourceView, Converter={StaticResource BoolToVis}}" />
                     <TextBlock Margin="16" VerticalAlignment="Top" TextWrapping="Wrap"
                                FontSize="13"
                                Foreground="{StaticResource DimBrush}"
-                               Visibility="{Binding HasOutput, Converter={StaticResource InverseBoolToVis}}"
+                               Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVis}}"
                                Text="Press Generate memory to build a memory file from your Claude Code sessions and any shared claude.ai link." />
+                    <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                            Visibility="{Binding PreviewVisible, Converter={StaticResource BoolToVis}}">
+                        <w2:WebView2 x:Name="Preview" AutomationProperties.Name="Markdown preview" />
+                    </Border>
                 </Grid>
             </Grid>
         </Grid>

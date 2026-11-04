@@ -87,6 +87,7 @@ Window title: `claude-memory`. Minimum size 900×600, default 1280×860.
 - **Left column (320–380 px, independently scrollable):** Source, Which sessions, Output, Save to disk. Generate pinned to the bottom.
 - **Right column:** toolbar (`Preview MD` / `Show source`, `Open MD…`, `Copy`, `Download`, `Copy for CLAUDE.md`, settings/menu), status line, then the output surface.
 - **Output surface:** monospace source view or WebView2 preview. Empty state explains what to do.
+- **Preview:** Markdig renders to a self-contained document shown in WebView2 over `about:blank`; links open in the default browser after scheme validation. WebView2 needs a browser profile, so the app creates `%LOCALAPPDATA%\claude-memory\webview2` on first preview — it holds no transcript content. A missing runtime leaves the source view working and names the install page.
 - **Status:** every action reports success, cancellation, or a one-line error next to the toolbar.
 - **Busy state:** indeterminate progress, action buttons disabled, Cancel available for network work.
 - **Theme:** dark, matching `#0f1115` background and `#d97757` accent, Segoe UI Variable; readable in Windows light mode (no hard-coded unreadable pairs).
