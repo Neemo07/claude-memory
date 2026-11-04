@@ -831,6 +831,69 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task A_file_sent_during_a_scan_opens_after_the_scan_finishes()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "scanned.md");
+        File.WriteAllText(path, "# Scanned\n");
+
+        var scanner = new FakeSessionScanner
+        {
+            Handler = () =>
+            {
+                Thread.Sleep(150);
+                return new ScanResult
+                {
+                    Sessions = Array.Empty<SessionRow>(),
+                    Root = @"C:\home\.claude",
+                    ProjectsDirectory = @"C:\home\.claude\projects",
+                    DefaultOutputDirectory = @"C:\home\Documents",
+                };
+            },
+        };
+        var model = NewModel(scanner: scanner);
+
+        var scan = model.ScanAsync();
+        await Task.Delay(50);
+        Assert.True(model.IsBusy);
+
+        model.OpenFromShell(path);
+        Assert.False(model.PreviewVisible);
+
+        await scan;
+
+        Assert.True(model.PreviewVisible);
+        Assert.True(model.PreviewIsFile);
+        Assert.Contains("<h1>Scanned</h1>", model.PreviewHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Several_files_queued_during_a_run_open_oldest_first()
+    {
+        using var temp = new TempDirectory();
+        var good = Path.Combine(temp.Path, "good.md");
+        File.WriteAllText(good, "# Good\n");
+        var bad = Path.Combine(temp.Path, "bad.md");
+        File.WriteAllBytes(bad, new byte[] { 0x23, 0x00, 0x0A }); // NUL byte is rejected
+
+        var gate = new TaskCompletionSource<BuildResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var model = NewModel(new FakeBuildPipeline { Handler = (_, _) => gate.Task });
+
+        var run = model.GenerateAsync();
+        model.OpenFromShell(good);
+        model.OpenFromShell(bad);
+
+        gate.SetResult(new BuildResult { Text = "# Built\n", Stats = "stats", SessionCount = 1 });
+        await run;
+
+        // The valid file was opened first; the rejected one explains itself last.
+        Assert.Equal(
+            "cannot open Markdown file: bad.md is not a text file.", model.StatusMessage);
+        Assert.True(model.PreviewVisible);
+    }
+
+    [Fact]
     public void A_bad_command_line_argument_is_reported_as_a_warning()
     {
         var model = NewModel();

@@ -31,6 +31,8 @@ internal sealed class FakeBuildPipeline : IBuildPipeline
 /// <summary>Session scanner double.</summary>
 internal sealed class FakeSessionScanner : ISessionScanner
 {
+    public Func<ScanResult>? Handler { get; set; }
+
     public ScanResult Result { get; set; } = new()
     {
         Sessions = Array.Empty<SessionRow>(),
@@ -44,7 +46,7 @@ internal sealed class FakeSessionScanner : ISessionScanner
     public ScanResult Scan()
     {
         CallCount++;
-        return Result;
+        return Handler is null ? Result : Handler();
     }
 }
 

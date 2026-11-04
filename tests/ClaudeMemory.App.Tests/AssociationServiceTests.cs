@@ -15,8 +15,9 @@ public sealed class AssociationServiceTests
         InMemoryRegistryStore registry,
         string executable = Exe,
         string? sampleDirectory = null,
-        Action<string>? showOpenWith = null)
-        => new(registry, executable, sampleDirectory, showOpenWith);
+        Action<string>? showOpenWith = null,
+        Func<string, bool>? fileExists = null)
+        => new(registry, executable, sampleDirectory, showOpenWith, fileExists ?? (_ => true));
 
     [Fact]
     public void Register_writes_the_progid_icon_and_quoted_command()
@@ -263,19 +264,55 @@ public sealed class AssociationServiceTests
     }
 
     [Fact]
+    public void Register_refuses_the_sdk_host_executable()
+    {
+        var registry = new InMemoryRegistryStore();
+        var service = NewService(
+            registry, @"C:\Program Files\dotnet\dotnet.exe", fileExists: _ => true);
+
+        var error = Assert.Throws<InvalidOperationException>(service.Register);
+
+        Assert.Contains("dotnet run", error.Message, StringComparison.Ordinal);
+        Assert.Empty(registry.TouchedPaths);
+    }
+
+    [Fact]
+    public void Register_refuses_a_missing_executable()
+    {
+        var registry = new InMemoryRegistryStore();
+        var service = NewService(
+            registry, @"C:\app\ClaudeMemory.exe", fileExists: _ => false);
+
+        var error = Assert.Throws<InvalidOperationException>(service.Register);
+
+        Assert.Contains("does not exist", error.Message, StringComparison.Ordinal);
+        Assert.Empty(registry.TouchedPaths);
+    }
+
+    [Fact]
     public void The_confirmation_sample_is_a_real_markdown_file_without_transcript_text()
     {
         using var temp = new TempDirectory();
         string? shown = null;
+        var existedDuringDialog = false;
+        var contentDuringDialog = "";
         var service = NewService(
-            new InMemoryRegistryStore(), Exe, temp.Path, path => shown = path);
+            new InMemoryRegistryStore(), Exe, temp.Path, path =>
+            {
+                shown = path;
+
+                // The sample is deleted once the picker returns, so capture inside the dialog.
+                existedDuringDialog = File.Exists(path);
+                if (existedDuringDialog) contentDuringDialog = File.ReadAllText(path);
+            });
 
         service.ShowWindowsConfirmation();
 
         Assert.NotNull(shown);
         Assert.EndsWith(".md", shown, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(shown));
-        Assert.Contains("# claude-memory preview", File.ReadAllText(shown), StringComparison.Ordinal);
+        Assert.True(existedDuringDialog);
+        Assert.Contains("# claude-memory preview", contentDuringDialog, StringComparison.Ordinal);
         Assert.Equal(temp.Path, Path.GetDirectoryName(shown));
+        Assert.False(File.Exists(shown), "the sample should be cleaned up afterwards");
     }
 }

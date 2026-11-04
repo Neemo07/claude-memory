@@ -2,12 +2,12 @@
 #
 # Install by copying this file to <project>/.claude/commands/memory.md
 # (or %USERPROFILE%/.claude/commands/memory.md to have it in every project).
-# Adjust MEMORY_TOOL below if you moved claude_memory.py somewhere else.
+# Adjust MEMORY_TOOL below if you moved ClaudeMemory.Cli.exe somewhere else.
 
 ---
 description: Regenerate MEMORY.md from recent Claude Code sessions and re-read it
-argument-hint: "[since, e.g. 7d | 30d | 2026-10-01] [extra claude_memory.py flags]"
-allowed-tools: Bash(python*), Bash(py*), Read, Edit
+argument-hint: "[since, e.g. 7d | 30d | 2026-10-01] [extra ClaudeMemory.Cli flags]"
+allowed-tools: Bash(ClaudeMemory.Cli*), Read, Edit
 ---
 
 Reconstruct my working context for this project from recent Claude Code sessions.
@@ -15,7 +15,7 @@ Reconstruct my working context for this project from recent Claude Code sessions
 1. Run the memory tool. Default window: 7d. Pass any extra arguments after `/memory`
    through as flags.
 
-   !`py "C:/Users/ImPro/Desktop/claude-memory/claude_memory.py" --here --since 7d --out MEMORY.md --history 5 --quiet`
+   !`"C:/Users/ImPro/Desktop/claude-memory/dist/ClaudeMemory.Cli/ClaudeMemory.Cli.exe" --here --since 7d --out MEMORY.md --history 5 --quiet`
 
    If that reports `no sessions matched`, retry once with a wider window
    (`--since 30d`), then once with no `--since` at all. If it still finds nothing, say

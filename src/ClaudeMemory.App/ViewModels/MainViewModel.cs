@@ -89,7 +89,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IAssociationService _association;
     private AssociationState _associationState;
     private string _associationStatus = "";
-    private string? _pendingShellPath;
+    private readonly Queue<string> _pendingShellPaths = new();
 
     public MainViewModel(
         IBuildPipeline? pipeline = null,
@@ -520,14 +520,15 @@ public sealed class MainViewModel : ObservableObject
             or IOException or InvalidOperationException;
 
     /// <summary>
-    /// Opens the file a second launch or Explorer handed us. While a build runs the path waits,
-    /// so a Generate cannot drop the preview the user just asked for (PRD §9.24).
+    /// Opens the file a second launch or Explorer handed us. While any run (Generate or scan)
+    /// holds the busy flag the path waits, so a run cannot drop the preview the user just
+    /// asked for (PRD §9.24); several queued files are opened oldest first.
     /// </summary>
     public void OpenFromShell(string path)
     {
         if (IsBusy)
         {
-            _pendingShellPath = path;
+            _pendingShellPaths.Enqueue(path);
             SetStatus("queued " + Path.GetFileName(path) + " until the current run finishes",
                 StatusKind.Info);
             return;
@@ -538,6 +539,18 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>Reports an unusable command-line argument (PRD §9.25).</summary>
     public void ReportStartupMessage(string message) => SetStatus(message, StatusKind.Warn);
+
+    /// <summary>
+    /// Opens everything queued while a run was busy. Called from the run's finally block,
+    /// when IsBusy is already false, so the opens go straight through.
+    /// </summary>
+    private void DrainPendingShellPaths()
+    {
+        while (_pendingShellPaths.Count > 0)
+        {
+            OpenMarkdownPath(_pendingShellPaths.Dequeue());
+        }
+    }
 
     /// <summary>Short hint under the Kind selector (gui.py:445-454).</summary>
     public string ModeHint => Mode switch
@@ -608,9 +621,7 @@ public sealed class MainViewModel : ObservableObject
             _cancellation = null;
 
             // A file handed over while this run was busy is opened now (PRD §9.24).
-            var queued = _pendingShellPath;
-            _pendingShellPath = null;
-            if (queued is not null) OpenMarkdownPath(queued);
+            DrainPendingShellPaths();
         }
     }
 
@@ -646,6 +657,10 @@ public sealed class MainViewModel : ObservableObject
             IsBusy = false;
             _cancellation?.Dispose();
             _cancellation = null;
+
+            // A scan holds the same busy flag a build does, so a file queued during it is
+            // drained here too - the window's first automatic scan must not swallow it.
+            DrainPendingShellPaths();
         }
     }
 

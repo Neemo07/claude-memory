@@ -52,8 +52,8 @@ public sealed class CliProcessTests
         Assert.Equal(2, code);
         Assert.Empty(bytes);
         Assert.EndsWith(
-            "claude_memory.py: error: unrecognized arguments: --bogus\n", stderr, StringComparison.Ordinal);
-        Assert.StartsWith("usage: claude_memory.py", stderr, StringComparison.Ordinal);
+            "ClaudeMemory.Cli: error: unrecognized arguments: --bogus\n", stderr, StringComparison.Ordinal);
+        Assert.StartsWith("usage: ClaudeMemory.Cli", stderr, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class CliProcessTests
         var (code, bytes, _) = CliProcess.Run("--version");
 
         Assert.Equal(0, code);
-        Assert.Equal("claude_memory.py 1.1.0\n", CliProcess.DecodeUtf8(bytes));
+        Assert.Equal("ClaudeMemory.Cli 1.1.0\n", CliProcess.DecodeUtf8(bytes));
     }
 
     [Fact]

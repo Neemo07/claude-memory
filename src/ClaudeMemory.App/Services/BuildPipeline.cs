@@ -59,6 +59,21 @@ public sealed class BuildPipeline : IBuildPipeline
         var shareSessions = await ImportSharesAsync(request, options, cancellationToken)
             .ConfigureAwait(false);
 
+        // Parsing and rendering are pure CPU work on multi-megabyte transcripts; running them
+        // here would freeze the window the whole time (PRD §9: a 10 MB transcript must not
+        // freeze the UI). The pipeline host (the UI thread in the app) stays responsive.
+        return await Task.Run(() => BuildLocal(request, options, now, shareSessions, cancellationToken),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private BuildResult BuildLocal(
+        BuildRequest request,
+        MemoryOptions options,
+        DateTimeOffset now,
+        List<Session> shareSessions,
+        CancellationToken cancellationToken)
+    {
         var local = new List<Session>();
         if (request.Source is MemorySource.Local or MemorySource.Both)
         {

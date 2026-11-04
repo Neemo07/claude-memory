@@ -1,4 +1,4 @@
-usage: claude_memory.py [-h] [--version] [--root ROOT]
+usage: ClaudeMemory.Cli [-h] [--version] [--root ROOT]
                         [--projects-dir PROJECTS_DIR] [--out OUT] [--print]
                         [--mode {memory,full,transcript,json}]
                         [--format {plain,claude-md}] [--sessions SESSIONS]
@@ -78,6 +78,6 @@ options:
   --quiet               suppress the stderr summary
 
 examples:
-  claude_memory.py --out memory/MEMORY.md --sessions 5 --since 7d
-  claude_memory.py --format claude-md --print
-  claude_memory.py --list
+  ClaudeMemory.Cli --out memory/MEMORY.md --sessions 5 --since 7d
+  ClaudeMemory.Cli --format claude-md --print
+  ClaudeMemory.Cli --list

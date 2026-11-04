@@ -27,9 +27,9 @@ public sealed class CliHelpTests
         var specs = CliSpecs.Create(CliHarness.Now);
         var text = CliHelp.Render(specs, MemoryOptions.DefaultRoot(), CliHarness.HelpWidth);
 
-        Assert.StartsWith("usage: claude_memory.py [-h] [--version] [--root ROOT]\n", text, StringComparison.Ordinal);
+        Assert.StartsWith("usage: ClaudeMemory.Cli [-h] [--version] [--root ROOT]\n", text, StringComparison.Ordinal);
         Assert.Contains("\noptions:\n", text, StringComparison.Ordinal);
-        Assert.EndsWith("  claude_memory.py --list\n", text, StringComparison.Ordinal);
+        Assert.EndsWith("  ClaudeMemory.Cli --list\n", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -48,9 +48,9 @@ public sealed class CliHelpTests
 
         Assert.Equal(2, code);
         Assert.Equal("", stdout);
-        Assert.StartsWith("usage: claude_memory.py [-h] [--version] [--root ROOT]\n", stderr, StringComparison.Ordinal);
+        Assert.StartsWith("usage: ClaudeMemory.Cli [-h] [--version] [--root ROOT]\n", stderr, StringComparison.Ordinal);
         Assert.EndsWith(
-            "claude_memory.py: error: unrecognized arguments: --bogus\n", stderr, StringComparison.Ordinal);
+            "ClaudeMemory.Cli: error: unrecognized arguments: --bogus\n", stderr, StringComparison.Ordinal);
 
         // The reference emits 16 wrapped usage lines plus the error line.
         Assert.Equal(17, stderr.Split('\n').Length - 1);
@@ -73,7 +73,7 @@ public sealed class CliHelpTests
 
         Assert.Equal(0, code);
         Assert.Equal("", stderr);
-        Assert.StartsWith("usage: claude_memory.py", stdout, StringComparison.Ordinal);
+        Assert.StartsWith("usage: ClaudeMemory.Cli", stdout, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class CliHelpTests
 
         Assert.Equal(0, code);
         Assert.Equal("", stderr);
-        Assert.Equal("claude_memory.py 1.1.0\n", stdout);
+        Assert.Equal("ClaudeMemory.Cli 1.1.0\n", stdout);
     }
 
     [Fact]

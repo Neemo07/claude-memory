@@ -15,8 +15,12 @@ namespace ClaudeMemory.Cli;
 /// </remarks>
 internal static class CliHelp
 {
-    /// <summary>Reference program name, also used in error and version lines.</summary>
-    public const string Prog = "claude_memory.py";
+    /// <summary>
+    /// Program name shown in usage, error and version lines. The reference printed its own
+    /// file name (<c>claude_memory.py</c>); this port prints its executable, the analogue of
+    /// argparse deriving <c>prog</c> from <c>sys.argv[0]</c> (see deviation 16).
+    /// </summary>
+    public const string Prog = "ClaudeMemory.Cli";
 
     private const string UsagePrefix = "usage: ";
 

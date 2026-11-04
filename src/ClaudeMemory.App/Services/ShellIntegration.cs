@@ -55,6 +55,7 @@ public sealed class AssociationService : IAssociationService
 
     private readonly IRegistryStore _registry;
     private readonly string _executablePath;
+    private readonly Func<string, bool> _fileExists;
     private readonly string _sampleDirectory;
     private readonly Action<string> _showOpenWith;
 
@@ -62,10 +63,12 @@ public sealed class AssociationService : IAssociationService
         IRegistryStore registry,
         string executablePath,
         string? sampleDirectory = null,
-        Action<string>? showOpenWith = null)
+        Action<string>? showOpenWith = null,
+        Func<string, bool>? fileExists = null)
     {
         _registry = registry;
         _executablePath = executablePath;
+        _fileExists = fileExists ?? File.Exists;
         _sampleDirectory = sampleDirectory
                            ?? Path.Combine(Path.GetTempPath(), "claude-memory");
         _showOpenWith = showOpenWith ?? ShellDialogs.ShowOpenWith;
@@ -98,6 +101,23 @@ public sealed class AssociationService : IAssociationService
 
     public void Register()
     {
+        // Registering under the .NET SDK host (dotnet run) would point the association at
+        // dotnet.exe, a key other tools also use, and unregistering would then delete their
+        // subkeys. The same guard catches a stale non-existent path.
+        var name = Path.GetFileName(_executablePath);
+        if (name is "dotnet.exe" or "dotnet")
+        {
+            throw new InvalidOperationException(
+                "this copy is running under the .NET SDK host (dotnet run); "
+                + "publish or run ClaudeMemory.exe directly to register it");
+        }
+
+        if (!_fileExists(_executablePath))
+        {
+            throw new InvalidOperationException(
+                "the executable to register does not exist: " + _executablePath);
+        }
+
         _registry.SetValue(ProgIdKey, "", ProgIdDescription);
         _registry.SetValue(ProgIdKey + @"\DefaultIcon", "", "\"" + _executablePath + "\",0");
         _registry.SetValue(ProgIdCommandKey, "", Command);
@@ -151,7 +171,22 @@ public sealed class AssociationService : IAssociationService
     public void ShowWindowsConfirmation()
     {
         var sample = WriteSample();
-        _showOpenWith(sample);
+        try
+        {
+            _showOpenWith(sample);
+        }
+        finally
+        {
+            // The sample exists only for the picker; a best-effort delete keeps %TEMP% tidy
+            // without ever failing the action.
+            try
+            {
+                File.Delete(sample);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
     }
 
     /// <summary>

@@ -5,7 +5,7 @@ namespace ClaudeMemory.App.Tests;
 
 /// <summary>
 /// Registry double that records every write, so a test can prove the app touches nothing it
-/// does not own (PRD §8: confined to <c>HKCU\Software\Classes</c>, no <c>UserChoice</c>).
+/// does not own (PRD §8: per-user <c>HKCU</c> only, no <c>UserChoice</c>, no <c>HKLM</c>).
 /// </summary>
 internal sealed class InMemoryRegistryStore : IRegistryStore
 {

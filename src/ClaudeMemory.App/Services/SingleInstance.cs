@@ -40,7 +40,10 @@ public sealed class SingleInstance : IDisposable
     /// <summary>Starts the listener. Requests arrive on a background thread.</summary>
     public void StartListening(Action<string> onRequest)
     {
-        if (!_isFirstInstance || _listener is not null) return;
+        lock (_gate)
+        {
+            if (_disposed || !_isFirstInstance || _listener is not null) return;
+        }
 
         _stop = new CancellationTokenSource();
         var token = _stop.Token;
@@ -51,9 +54,18 @@ public sealed class SingleInstance : IDisposable
     public bool TrySend(string request, int timeoutMilliseconds = 3000)
     {
         var deadline = Environment.TickCount64 + timeoutMilliseconds;
+        var firstAttempt = true;
 
         while (Environment.TickCount64 <= deadline)
         {
+            if (!firstAttempt)
+            {
+                // A refused connection returns immediately; without this pause the deadline
+                // burns CPU in a tight loop for three seconds.
+                Thread.Sleep(75);
+            }
+
+            firstAttempt = false;
             try
             {
                 using var client = new NamedPipeClientStream(

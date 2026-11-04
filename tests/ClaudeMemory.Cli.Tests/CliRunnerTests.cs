@@ -377,10 +377,10 @@ public sealed class CliRunnerTests
 
         // An empty root would exit 2 for a normal run; help/version short-circuit before that.
         Assert.Equal(0, CliHarness.Run(new[] { "--root", empty.Path, "--help" }, out var help, out _));
-        Assert.StartsWith("usage: claude_memory.py", help, StringComparison.Ordinal);
+        Assert.StartsWith("usage: ClaudeMemory.Cli", help, StringComparison.Ordinal);
 
         Assert.Equal(0, CliHarness.Run(new[] { "--root", empty.Path, "--version" }, out var version, out _));
-        Assert.Equal("claude_memory.py 1.1.0\n", version);
+        Assert.Equal("ClaudeMemory.Cli 1.1.0\n", version);
     }
 
     [Fact]

@@ -64,7 +64,9 @@ public partial class App : Application
     private void OnSecondLaunch(string path)
         => Dispatcher.BeginInvoke(() =>
         {
-            if (_window is not null) _window.OpenFromShell(path);
+            // The queued callback can run after the user already closed the window; touching
+            // a closed Window would throw, and re-showing it is not what "closed" means.
+            if (_window is { IsLoaded: true }) _window.OpenFromShell(path);
         });
 
     protected override void OnExit(ExitEventArgs e)
@@ -97,7 +99,7 @@ public partial class App : Application
     /// <summary>Appends the error to the log and, when fatal, tells the user where it is.</summary>
     private static void Report(Exception error, bool fatal)
     {
-        TryLog(error);
+        var logged = TryLog(error);
 
         if (!fatal) return;
 
@@ -106,7 +108,10 @@ public partial class App : Application
             MessageBox.Show(
                 "claude-memory hit an unexpected error and has to close.\n\n"
                 + error.GetType().Name + ": " + error.Message + "\n\n"
-                + "Details were written to:\n" + ErrorLogPath,
+                + (logged
+                    ? "Details were written to:\n" + ErrorLogPath
+                    : "The details could not be written to " + ErrorLogPath
+                      + " - the folder may be read-only."),
                 "claude-memory",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -117,7 +122,7 @@ public partial class App : Application
         }
     }
 
-    private static void TryLog(Exception error)
+    private static bool TryLog(Exception error)
     {
         try
         {
@@ -134,10 +139,12 @@ public partial class App : Application
 
             File.AppendAllText(
                 ErrorLogPath, entry, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            return true;
         }
         catch (Exception)
         {
             // A log failure must never mask the original error.
+            return false;
         }
     }
 }
