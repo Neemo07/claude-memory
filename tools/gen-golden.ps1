@@ -19,6 +19,9 @@ $fixture = Join-Path $repo 'tests\fixtures\fixture_root'
 $share = Join-Path $repo 'tests\fixtures\share-branching.json'
 $golden = Join-Path $repo 'tests\golden'
 
+# argparse wraps the help at COLUMNS - 2; freeze the width so the capture is machine-independent.
+$env:COLUMNS = '80'
+
 if (-not (Test-Path -LiteralPath $cli)) {
     throw "Python reference not found: $cli"
 }
@@ -109,6 +112,36 @@ sys.stdout.write(json.dumps(payload, indent=1, ensure_ascii=False) + "\n")
     }
 }
 
+function Invoke-HelpReference {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $outFile = Join-Path $env:TEMP ('cm-golden-' + [guid]::NewGuid().ToString('N') + '.txt')
+
+    try {
+        # --help is printed by argparse before configure_stdio(), but the text is pure ASCII.
+        $line = 'py -3.12 "' + $cli + '" --help > "' + $outFile + '"'
+        cmd.exe /d /c $line | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Help reference failed with exit code $LASTEXITCODE." }
+
+        # Windows Python text-mode stdout writes CRLF; the parity contract is LF.
+        $text = [System.IO.File]::ReadAllText($outFile, $utf8).Replace("`r`n", "`n")
+
+        # The real home directory must not leak into a committed file. Mirrors DEFAULT_ROOT
+        # (claude_memory.py:39): Path(expanduser("~")) / ".claude".
+        $defaultRoot = (& py -3.12 -c "import os; print(os.path.join(os.path.expanduser('~'), '.claude'))").Trim()
+        if ([string]::IsNullOrWhiteSpace($defaultRoot)) { throw 'Could not resolve the reference DEFAULT_ROOT.' }
+        $text = $text.Replace($defaultRoot, '%DEFAULT_ROOT%')
+
+        [System.IO.File]::WriteAllText((Join-Path $golden $Name), $text, $utf8)
+        Write-Host ('wrote {0} ({1} chars)' -f $Name, $text.Length)
+    }
+    finally {
+        Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 $rootArgs = '--root "' + $fixture + '"'
 
 Invoke-Reference 'memory-plain.md' $rootArgs
@@ -121,5 +154,6 @@ Invoke-Reference 'json.json' ($rootArgs + ' --mode json')
 Invoke-Reference 'list.md' ($rootArgs + ' --list')
 Invoke-Reference 'share-memory.md' ('--share-file "' + $share + '" --only-share')
 Invoke-CacheReference 'share-cache.json' $share
+Invoke-HelpReference 'cli-help.txt'
 
 Write-Host 'Golden files regenerated.'

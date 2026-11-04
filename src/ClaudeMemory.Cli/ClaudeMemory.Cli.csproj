@@ -5,10 +5,15 @@
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>ClaudeMemory.Cli</AssemblyName>
     <RootNamespace>ClaudeMemory.Cli</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ClaudeMemory.Core\ClaudeMemory.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ClaudeMemory.Cli.Tests" />
   </ItemGroup>
 
 </Project>

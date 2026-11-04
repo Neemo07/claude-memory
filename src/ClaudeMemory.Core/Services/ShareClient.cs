@@ -61,7 +61,7 @@ public sealed class ShareClient
     /// Optional retry notice sink. <c>Core</c> must not touch the console, so the CLI host
     /// prefixes and prints these exactly like the reference's stderr line
     /// (claude_memory.py:826).</summary>
-    public Action<string>? RetryNotice { get; init; }
+    public Action<string>? RetryNotice { get; set; }
 
     /// <param name="handler">Injected transport; when null a real <see cref="HttpClientHandler"/> is used.</param>
     /// <param name="delay">Injected backoff; tests pass a no-op so retries are instant.</param>

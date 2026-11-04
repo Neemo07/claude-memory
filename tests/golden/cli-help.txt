@@ -1,0 +1,83 @@
+usage: claude_memory.py [-h] [--version] [--root ROOT]
+                        [--projects-dir PROJECTS_DIR] [--out OUT] [--print]
+                        [--mode {memory,full,transcript,json}]
+                        [--format {plain,claude-md}] [--sessions SESSIONS]
+                        [--since WHEN] [--fast] [--cwd CWD] [--here]
+                        [--branch BRANCH] [--max-chars MAX_CHARS]
+                        [--max-items MAX_ITEMS] [--max-paths MAX_PATHS]
+                        [--max-cmds MAX_CMDS] [--max-line MAX_LINE]
+                        [--max-prompts MAX_PROMPTS_PER_SESSION]
+                        [--max-file-bytes MAX_FILE_BYTES]
+                        [--sidechains {keep,drop}] [--include-thinking]
+                        [--no-addresses] [--history HISTORY]
+                        [--source-note SOURCE_NOTE] [--share URL]
+                        [--share-file PATH] [--share-save PATH] [--only-share]
+                        [--ascii] [--lang {auto,en,ar,both}] [--list]
+                        [--quiet]
+
+Summarise Claude Code sessions into a rolling markdown memory file.
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+  --root ROOT           Claude config dir (default: %DEFAULT_ROOT%)
+  --projects-dir PROJECTS_DIR
+                        explicit transcript dir, overrides <root>/projects
+  --out OUT             write the file here
+  --print               also write to stdout
+  --mode {memory,full,transcript,json}
+                        memory = summary (default); full = summary plus the
+                        entire conversation; transcript = raw readable chat;
+                        json = structured
+  --format {plain,claude-md}
+                        claude-md wraps output in CLAUDE.md paste markers
+  --sessions SESSIONS   only the newest N sessions (0=all)
+  --since WHEN          7d, 12h, 30m, YYYY-MM-DD or ISO timestamp
+  --fast                APPROXIMATE: skip transcripts whose file mtime
+                        predates --before deciding, instead of reading every
+                        one. Much faster on big histories, but can miss
+                        sessions whose timestamps live inside the record and
+                        whose file was moved/restored. Needs --since to do
+                        anything
+  --cwd CWD             only sessions whose path/cwd contains this
+  --here                only sessions belonging to the current directory
+                        (default cwd filter)
+  --branch BRANCH       only sessions on this git branch
+  --max-chars MAX_CHARS
+                        global body budget in chars (default: 14000)
+  --max-items MAX_ITEMS
+                        max lines per claim section
+  --max-paths MAX_PATHS
+                        max paths/identifiers listed
+  --max-cmds MAX_CMDS   max shell commands listed
+  --max-line MAX_LINE   max chars per quoted line
+  --max-prompts MAX_PROMPTS_PER_SESSION
+                        max user prompts quoted per session
+  --max-file-bytes MAX_FILE_BYTES
+                        per-transcript read cap; tail is kept (default:
+                        12582912)
+  --sidechains {keep,drop}
+                        include subagent turns (default: keep)
+  --include-thinking    include thinking blocks
+  --no-addresses        skip bare hex/address harvesting
+  --history HISTORY     keep N previous versions in <out>.history (default: 5)
+  --source-note SOURCE_NOTE
+                        free-text provenance line for the header
+  --share URL           also import a claude.ai share link
+                        (https://claude.ai/share/<uuid>, or a bare uuid)
+  --share-file PATH     import a saved share payload (.json) instead of
+                        fetching
+  --share-save PATH     cache the fetched share payload here for offline re-
+                        runs
+  --only-share          ignore local sessions, use only the shared link
+  --ascii               downgrade box/arrow glyphs to ASCII (legacy consoles)
+  --lang {auto,en,ar,both}
+                        section header language: auto-detect (default),
+                        English, Arabic, or bilingual
+  --list                list discovered sessions and exit
+  --quiet               suppress the stderr summary
+
+examples:
+  claude_memory.py --out memory/MEMORY.md --sessions 5 --since 7d
+  claude_memory.py --format claude-md --print
+  claude_memory.py --list

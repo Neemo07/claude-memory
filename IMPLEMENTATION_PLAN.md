@@ -21,7 +21,7 @@ ClaudeMemory.App (WPF, net8.0-windows, WinExe)
   Assets/preview.css                dark GitHub-like preview styling
         |
 ClaudeMemory.Cli (console, net8.0)
-  Program.cs, CommandLine/ArgumentParser.cs, CommandLine/HelpText.cs
+  Program.cs, CliSpecs.cs, CliParser.cs, CliHelp.cs, CliRunner.cs, CliValue.cs
         |
 ClaudeMemory.Core (class library, net8.0)
   Model/            Turn, Session, MemoryOptions, Budget, FileFacts, BuildRequest/Result
@@ -35,6 +35,7 @@ ClaudeMemory.Core (class library, net8.0)
 tests/
   ClaudeMemory.Core.Tests/          unit + golden parity
   ClaudeMemory.App.Tests/           view model, preview safety, registry store, IPC
+  ClaudeMemory.Cli.Tests/           parser, help, exit codes, process stdio
   fixtures/                         frozen transcript/share corpus
   golden/                           frozen Python 1.1.0 outputs
 tools/
@@ -81,6 +82,8 @@ Recorded here so a reviewer can tell a bug from a decision.
 7. Share error detail text carries the .NET exception message (for example a `JsonException` or an `HttpRequestException`) where the reference prints Python's own wording. The stable prefixes (`cannot read …`, `… is not valid JSON: …`, `could not read share link after N attempts: …`) match.
 8. `--share-save` is best-effort: an IO failure returns false and the import continues, whereas the reference would propagate the write error after the payload was already fetched.
 9. `fetch_share`'s 404-specific `raise` is unreachable in the reference (the retry filter breaks first), so it is not ported; a 404 reports the final `could not read share link after N attempts: HTTP 404 …` message.
+10. An IO failure while reading the previous history copy or writing the output is reported as `[claude-memory] {message}` with exit 1. The reference lets the `OSError` escape as a traceback; the exit code is the same and no stack trace reaches the user.
+11. The CLI help golden stores `%DEFAULT_ROOT%` instead of this machine's home directory, so `tests/golden/cli-help.txt` is machine-independent. The test substitutes `MemoryOptions.DefaultRoot()` (claude_memory.py:39-40).
 
 ## 3. Dependencies
 
@@ -167,11 +170,32 @@ Gate: share tests green; no socket opened.
 
 ### Phase 5 — CLI host
 
-Scope: `ClaudeMemory.Cli/*`.
+Scope: `ClaudeMemory.Cli/*`, `tests/ClaudeMemory.Cli.Tests/*`, the `cli-help.txt` golden, and the help capture in `tools/gen-golden.ps1`.
 
-Work: hand-rolled argument parser with reference flags, help text, exit codes 0/1/2/3, stdout/stderr split, `--list` wiring (renderer is in Phase 3), `--print`, `--version`, `--quiet`, `--fast`, history behaviour.
+Files:
 
-Tests: parser table (valid/invalid), end-to-end runs against fixtures, golden output, exit codes, stdin/stdout encoding on Windows.
+- `Program.cs` — entry point; UTF-8 without BOM, LF, `Ctrl+C` cancels and flushes.
+- `CliValue.cs` — `CliUsageException`, `CliValueException`, `PyInt`, `PyText.Repr`.
+- `CliSpecs.cs` — the ordered option table shared by the parser and the help renderer.
+- `CliHelp.cs` — `usage:` wrapping, the options section, argparse's `textwrap` port.
+- `CliParser.cs` — the argparse-compatible parser (`--name=value`, prefixes, `--`, negative values, immediate help/version).
+- `CliRunner.cs` — `main()` parity: share import, discovery, `--fast`, selection, render, history, write, stderr lines, exit codes.
+
+Work:
+
+- Hand-rolled argument parser with the reference flags, abbreviations, ambiguous-prefix errors, `ignored explicit argument`, and `unrecognized arguments` (including the `--` marker itself).
+- Help layout at `COLUMNS - 2` (default 80 → 78); the options section reproduces argparse's hyphen-aware wrapping.
+- Exit codes 0 (ok), 1 (no sessions / IO failure), 2 (usage or no transcript dir), 3 (share failure), 130 (`interrupt`).
+- stdout/stderr split with the reference prefixes (`[claude-memory] ...`), `--quiet`, `--print`, `--version`, `--list`, `--fast` with mtime cutoff, `--max-chars` floor warning, and history archiving for `memory` mode only.
+
+Tests (`ClaudeMemory.Cli.Tests`, 98 cases):
+
+- Parser table: every error string, ambiguity, abbreviation, negative value, inline `=`, `--`, and the immediate help/version actions; `PyInt` Python spellings including Unicode digits and saturation.
+- Help: byte-identical `cli-help.txt` after substituting `%DEFAULT_ROOT%`; usage-block shape; `usage:` + `claude_memory.py: error:` layout; version identity.
+- Runner: every mode against the frozen goldens, `--share-file` import, the exit-code table, the exact no-transcript/no-session messages, `--cwd`, `--quiet`, `--out` + `--print` + the paste-ready hints, history naming/pruning, `--fast` with controlled mtimes, and the floor warning.
+- Process: the real executable writes UTF-8 without a BOM, LF only, and survives non-ASCII output.
+
+Parity verification beyond the suite (manual, this machine): 56 forced side-by-side runs of `py -3.12 claude_memory.py` versus the built CLI compared stdout, stderr, and exit codes after timestamp normalisation, plus a byte-identical `--help` check and a stamp-normalised history re-check. All matched except the documented `.NET` exception detail text (deviation 7) and a wall-clock history-naming artefact that re-matched once the timestamp was normalised.
 
 Gate: CLI parity signed off; this becomes the oracle after Python removal.
 

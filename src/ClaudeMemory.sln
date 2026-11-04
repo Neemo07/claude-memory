@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClaudeMemory.Core.Tests", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClaudeMemory.App.Tests", "..\tests\ClaudeMemory.App.Tests\ClaudeMemory.App.Tests.csproj", "{3D60674C-50BE-4E13-A560-2E01D415135A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClaudeMemory.Cli.Tests", "..\tests\ClaudeMemory.Cli.Tests\ClaudeMemory.Cli.Tests.csproj", "{3B4764DD-5709-41B5-8E94-354BF53F7368}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{3D60674C-50BE-4E13-A560-2E01D415135A}.Release|x64.Build.0 = Release|Any CPU
 		{3D60674C-50BE-4E13-A560-2E01D415135A}.Release|x86.ActiveCfg = Release|Any CPU
 		{3D60674C-50BE-4E13-A560-2E01D415135A}.Release|x86.Build.0 = Release|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Debug|x64.Build.0 = Debug|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Debug|x86.Build.0 = Debug|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Release|x64.ActiveCfg = Release|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Release|x64.Build.0 = Release|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Release|x86.ActiveCfg = Release|Any CPU
+		{3B4764DD-5709-41B5-8E94-354BF53F7368}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
