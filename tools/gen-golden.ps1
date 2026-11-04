@@ -80,6 +80,7 @@ Invoke-Reference 'memory-lang-both.md' ($rootArgs + ' --lang both')
 Invoke-Reference 'full-plain.md' ($rootArgs + ' --mode full')
 Invoke-Reference 'transcript.md' ($rootArgs + ' --mode transcript')
 Invoke-Reference 'json.json' ($rootArgs + ' --mode json')
+Invoke-Reference 'list.md' ($rootArgs + ' --list')
 Invoke-Reference 'share-memory.md' ('--share-file "' + $share + '" --only-share')
 
 Write-Host 'Golden files regenerated.'

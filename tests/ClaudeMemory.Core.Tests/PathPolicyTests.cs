@@ -60,25 +60,37 @@ public sealed class PathPolicyTests
     }
 
     [Fact]
-    public void Expands_percent_and_dollar_variables()
+    public void Expands_variables_like_ntpath_expandvars()
     {
         var name = "CLAUDE_MEMORY_TEST_" + Guid.NewGuid().ToString("N");
-        Environment.SetEnvironmentVariable(name, "C:\\expanded");
+        Environment.SetEnvironmentVariable(name, "C:\\probe");
         try
         {
-            Assert.Equal("C:\\expanded\\x", PathPolicy.ExpandVariables("%" + name + "%\\x"));
-            Assert.Equal("C:\\expanded\\x", PathPolicy.ExpandVariables("$" + name + "\\x"));
-            Assert.Equal("C:\\expanded\\x", PathPolicy.ExpandVariables("${" + name + "}\\x"));
+            Assert.Equal("C:\\probe\\x", PathPolicy.ExpandVariables("%" + name + "%\\x"));
+            Assert.Equal("C:\\probe\\x", PathPolicy.ExpandVariables("$" + name + "\\x"));
+            Assert.Equal("C:\\probe\\x", PathPolicy.ExpandVariables("${" + name + "}\\x"));
+            Assert.Equal("C:\\probeC:\\probe", PathPolicy.ExpandVariables("%" + name + "%$" + name));
+
+            // Unknown variables stay literal, matching ntpath.
+            Assert.Equal("$NO_SUCH_VARIABLE_9x\\x", PathPolicy.ExpandVariables("$NO_SUCH_VARIABLE_9x\\x"));
+            Assert.Equal("${NO_SUCH_VARIABLE_9x}\\x", PathPolicy.ExpandVariables("${NO_SUCH_VARIABLE_9x}\\x"));
+            Assert.Equal("%NO_SUCH_VARIABLE_9x%\\x", PathPolicy.ExpandVariables("%NO_SUCH_VARIABLE_9x%\\x"));
+
+            // Unclosed markers and doubled markers behave like the reference.
+            Assert.Equal("100% done", PathPolicy.ExpandVariables("100% done"));
+            Assert.Equal("a$b$c", PathPolicy.ExpandVariables("a$b$c"));
+            Assert.Equal("$" + name, PathPolicy.ExpandVariables("$$" + name));
+            Assert.Equal("%", PathPolicy.ExpandVariables("%%"));
+            Assert.Equal("%" + name, PathPolicy.ExpandVariables("%" + name));
+            Assert.Equal("$", PathPolicy.ExpandVariables("$"));
+            Assert.Equal("%", PathPolicy.ExpandVariables("%"));
+
+            // Nothing expands inside single quotes.
+            Assert.Equal("'$" + name + "'", PathPolicy.ExpandVariables("'$" + name + "'"));
         }
         finally
         {
             Environment.SetEnvironmentVariable(name, null);
         }
-    }
-
-    [Fact]
-    public void Leaves_unknown_variables_untouched()
-    {
-        Assert.Equal("%NO_SUCH_VARIABLE_9x%\\x", PathPolicy.ExpandVariables("%NO_SUCH_VARIABLE_9x%\\x"));
     }
 }

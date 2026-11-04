@@ -62,6 +62,26 @@ public sealed class GoldenModesTests
         Assert.Equal(arabic, parsed);
     }
 
+    [Fact]
+    public void Json_uses_python_float_and_isoformat_rules()
+    {
+        var session = new Session("C:/p/x.jsonl") { Sid = "s", Cwd = "C:/p" };
+        session.Start = DateTimeOffset.Parse("2026-10-01T09:00:00Z", CultureInfo.InvariantCulture);
+        session.End = DateTimeOffset.Parse("2026-10-01T09:00:01.25Z", CultureInfo.InvariantCulture);
+        session.Turns.Add(new Turn
+        {
+            Role = TurnRoles.User,
+            Text = "x",
+            Timestamp = DateTimeOffset.Parse("2026-10-01T09:00:01.123456Z", CultureInfo.InvariantCulture),
+        });
+
+        var text = JsonExporter.Build(new[] { session }, Now);
+
+        // round(1.25, 1) is 1.2 under Python's round-half-to-even.
+        Assert.Contains("\"duration_seconds\": 1.2,", text, StringComparison.Ordinal);
+        Assert.Contains("\"ts\": \"2026-10-01T09:00:01.123456+00:00\"", text, StringComparison.Ordinal);
+    }
+
     private static void AssertMatches(string goldenName, string actual)
     {
         var expected = Golden.Normalise(File.ReadAllText(Path.Combine(TestPaths.Golden, goldenName)));

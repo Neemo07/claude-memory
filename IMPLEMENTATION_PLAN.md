@@ -54,7 +54,7 @@ Dependency rule: `App -> Core`, `Cli -> Core`, `Core` has no UI, registry, conso
 | `parse_session`, `_iter_records`, `discover`, `select` | `Parsing/*` | fixture sessions + malformed lines |
 | `fetch_share`, `share_uuid`, `share_chain`, `parse_share_payload`, `load_share_file` | `Services/Share*.cs`, `Parsing/SharePayloadParser.cs` | fake HTTP: 200/403/429/404/non-JSON; branch fixtures |
 | `Budget`, `render_*`, `build_memory`, `build_full_memory` | `Rendering/*` | golden `memory`/`full` outputs |
-| `build_transcript`, `build_json` | `Rendering/*` | golden `transcript`/`json` outputs |
+| `build_transcript`, `build_json`, `render_list` | `Rendering/*` | golden `transcript`/`json`/`list` outputs |
 | `atomic_write`, `archive_history`, `safe_out_path` | `Services/AtomicFileWriter.cs`, `HistoryArchiver.cs`, `PathPolicy.cs` | temp-dir tests |
 | `markdown_preview.py` | `PreviewHtmlBuilder` via Markdig | safety tests, not AST parity |
 | `gui.py` routes / `app.py` window | `MainViewModel` + WPF shell | view-model tests + manual UI checks |
@@ -144,11 +144,11 @@ Gate: golden parity for `memory`; review any intentional difference before conti
 
 ### Phase 3 — Full, transcript, JSON, save, history
 
-Scope: `FullMemoryBuilder.cs`, `TranscriptBuilder.cs`, `JsonExporter.cs`, `AtomicFileWriter.cs`, `HistoryArchiver.cs`, `PathPolicy.cs`, `SaveService.cs`.
+Scope: `FullMemoryBuilder.cs`, `TranscriptBuilder.cs`, `JsonExporter.cs`, `ListRenderer.cs`, `AtomicFileWriter.cs`, `HistoryArchiver.cs`, `PathPolicy.cs`, `SaveService.cs`.
 
-Work: full conversation layout, transcript layout, JSON shape/key order/indentation, atomic temp-then-replace, history retention and naming, save-path refusal rules, folder reveal.
+Work: full conversation layout, transcript layout, JSON shape/key order/indentation, list table layout, atomic temp-then-replace, history retention and naming, save-path refusal rules, folder reveal.
 
-Tests: golden `full`, `transcript`, `json`; JSON survives round-trip and uses unescaped Unicode; history keeps N and prunes oldest; path traversal, relative folder, bad suffix, read-only folder, locked target; cancellation leaves no temp file.
+Tests: golden `full`, `transcript`, `json`, `list`; JSON survives round-trip and uses unescaped Unicode; history keeps N and prunes oldest; path traversal, relative folder, bad suffix, read-only folder, locked target; cancellation leaves no temp file.
 
 Gate: all four modes byte-parity after normalisation; IO tests green.
 
@@ -166,7 +166,7 @@ Gate: share tests green; no socket opened.
 
 Scope: `ClaudeMemory.Cli/*`.
 
-Work: hand-rolled argument parser with reference flags, help text, exit codes 0/1/2/3, stdout/stderr split, `--list`, `--print`, `--version`, `--quiet`, `--fast`, history behaviour.
+Work: hand-rolled argument parser with reference flags, help text, exit codes 0/1/2/3, stdout/stderr split, `--list` wiring (renderer is in Phase 3), `--print`, `--version`, `--quiet`, `--fast`, history behaviour.
 
 Tests: parser table (valid/invalid), end-to-end runs against fixtures, golden output, exit codes, stdin/stdout encoding on Windows.
 

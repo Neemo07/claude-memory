@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+using System.Text;
 
 namespace ClaudeMemory.Core.Services;
 
@@ -13,10 +13,6 @@ public static class PathPolicy
 
     /// <summary>Name used when the caller supplies none (gui.py:1078).</summary>
     public const string DefaultName = "MEMORY.md";
-
-    private static readonly Regex PercentVariable = new("%([^%]+)%", RegexOptions.Compiled);
-
-    private static readonly Regex DollarVariable = new(@"\$(\w+|\{[^}]+\})", RegexOptions.Compiled);
 
     /// <summary>
     /// Resolves the save target, refusing anything that is not a plain data file
@@ -84,22 +80,111 @@ public static class PathPolicy
     }
 
     /// <summary>
-    /// Windows-flavoured <c>os.path.expandvars</c>: expands <c>%VAR%</c> and <c>$VAR</c> /
-    /// <c>${VAR}</c>. Unknown variables are left untouched, as the reference does.
+    /// Faithful port of <c>ntpath.expandvars</c>: expands <c>$var</c>, <c>${var}</c> and
+    /// <c>%var%</c>, leaves unknown variables unchanged, treats <c>$$</c> and <c>%%</c> as a
+    /// literal <c>$</c>/<c>%</c>, and expands nothing inside single quotes.
     /// </summary>
     public static string ExpandVariables(string path)
     {
-        if (!path.Contains('%') && !path.Contains('$')) return path;
+        if (!path.Contains('$') && !path.Contains('%')) return path;
 
-        var expanded = PercentVariable.Replace(
-            path, match => Environment.GetEnvironmentVariable(match.Groups[1].Value) ?? match.Value);
-        return DollarVariable.Replace(expanded, match =>
+        var result = new StringBuilder();
+        var index = 0;
+        while (index < path.Length)
         {
-            var name = match.Groups[1].Value;
-            if (name.StartsWith('{') && name.EndsWith('}')) name = name[1..^1];
-            return Environment.GetEnvironmentVariable(name) ?? match.Value;
-        });
+            var current = path[index];
+            if (current == '\'')
+            {
+                // No expansion within single quotes.
+                path = path[(index + 1)..];
+                var close = path.IndexOf('\'');
+                if (close < 0)
+                {
+                    result.Append('\'').Append(path);
+                    index = path.Length - 1;
+                }
+                else
+                {
+                    result.Append('\'').Append(path, 0, close + 1);
+                    index = close;
+                }
+            }
+            else if (current == '%')
+            {
+                if (index + 1 < path.Length && path[index + 1] == '%')
+                {
+                    result.Append('%');
+                    index += 1;
+                }
+                else
+                {
+                    path = path[(index + 1)..];
+                    var close = path.IndexOf('%');
+                    if (close < 0)
+                    {
+                        result.Append('%').Append(path);
+                        index = path.Length - 1;
+                    }
+                    else
+                    {
+                        var name = path[..close];
+                        result.Append(Environment.GetEnvironmentVariable(name) ?? ("%" + name + "%"));
+                        index = close;
+                    }
+                }
+            }
+            else if (current == '$')
+            {
+                if (index + 1 < path.Length && path[index + 1] == '$')
+                {
+                    result.Append('$');
+                    index += 1;
+                }
+                else if (index + 1 < path.Length && path[index + 1] == '{')
+                {
+                    path = path[(index + 2)..];
+                    var close = path.IndexOf('}');
+                    if (close < 0)
+                    {
+                        result.Append("${").Append(path);
+                        index = path.Length - 1;
+                    }
+                    else
+                    {
+                        var name = path[..close];
+                        result.Append(Environment.GetEnvironmentVariable(name) ?? ("${" + name + "}"));
+                        index = close;
+                    }
+                }
+                else
+                {
+                    var name = new StringBuilder();
+                    index += 1;
+                    while (index < path.Length && IsVariableChar(path[index]))
+                    {
+                        name.Append(path[index]);
+                        index += 1;
+                    }
+
+                    var variable = name.ToString();
+                    result.Append(Environment.GetEnvironmentVariable(variable) ?? ("$" + variable));
+                    if (index < path.Length) index -= 1;
+                }
+            }
+            else
+            {
+                result.Append(current);
+            }
+
+            index += 1;
+        }
+
+        return result.ToString();
     }
+
+    /// <summary><c>string.ascii_letters + string.digits + '_-'</c> (ntpath.expandvars).</summary>
+    private static bool IsVariableChar(char value)
+        => value is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_' or '-';
 }
 
 /// <summary>A save request was refused by <see cref="PathPolicy"/> or <see cref="SaveService"/>.</summary>

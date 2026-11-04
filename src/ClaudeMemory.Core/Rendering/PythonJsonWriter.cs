@@ -129,7 +129,10 @@ internal static class PythonJsonWriter
         if (double.IsNegativeInfinity(value)) return "-Infinity";
 
         var text = value.ToString(CultureInfo.InvariantCulture);
-        return text.IndexOfAny(new[] { '.', 'e', 'E' }) < 0 ? text + ".0" : text;
+        if (text.IndexOfAny(new[] { '.', 'e', 'E' }) < 0) text += ".0";
+
+        // .NET writes "1E+20"; Python's repr uses a lowercase exponent.
+        return text.Replace('E', 'e');
     }
 
     private static void Indent(StringBuilder builder, int level) => builder.Append(' ', level * 2);

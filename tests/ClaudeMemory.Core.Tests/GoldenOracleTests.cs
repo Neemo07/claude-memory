@@ -11,6 +11,7 @@ public sealed class GoldenOracleTests
         "full-plain.md",
         "transcript.md",
         "json.json",
+        "list.md",
         "share-memory.md",
     ];
 
