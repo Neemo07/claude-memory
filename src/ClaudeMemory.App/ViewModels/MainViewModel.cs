@@ -125,6 +125,7 @@ public sealed class MainViewModel : ObservableObject
         ScanCommand = new AsyncRelayCommand(ScanAsync, () => !IsBusy);
         PreviewCommand = new RelayCommand(TogglePreview, () => !IsBusy);
         OpenMarkdownCommand = new RelayCommand(OpenMarkdownFile, () => !IsBusy);
+        CloseFileCommand = new RelayCommand(CloseFile, () => PreviewIsFile && !IsBusy);
         RegisterAssociationCommand = new RelayCommand(RegisterAssociation, () => !IsBusy);
         RemoveAssociationCommand = new RelayCommand(RemoveAssociation, () => !IsBusy);
 
@@ -156,6 +157,9 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>Picks a local Markdown file and shows it in the preview.</summary>
     public ICommand OpenMarkdownCommand { get; }
+
+    /// <summary>Ends the opened-file document and returns to the empty state or the output.</summary>
+    public ICommand CloseFileCommand { get; }
 
     /// <summary>Registers the per-user Markdown association, then asks Windows to confirm.</summary>
     public ICommand RegisterAssociationCommand { get; }
@@ -927,6 +931,23 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Ends the opened-file document (PRD §6): the preview hides, the file stops being the
+    /// current document, and the view returns to the empty state or the generated output.
+    /// Deliberate addition — the reference only closed the preview pane (gui.py:641-648).
+    /// </summary>
+    public void CloseFile()
+    {
+        if (!PreviewIsFile) return;
+
+        PreviewVisible = false;
+        PreviewIsFile = false;
+        PreviewFileText = "";
+        PreviewFileName = "";
+        PreviewHtml = "";
+        SetStatus("file closed", StatusKind.Ok);
+    }
+
     /// <summary>Opens a validated external link, for the preview's navigation guard.</summary>
     public void OpenExternalLink(string url)
     {
@@ -1014,6 +1035,7 @@ public sealed class MainViewModel : ObservableObject
         (BrowseShareFileCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (PreviewCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (OpenMarkdownCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (CloseFileCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RegisterAssociationCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RemoveAssociationCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }

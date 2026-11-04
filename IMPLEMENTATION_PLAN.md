@@ -362,6 +362,12 @@ Fix: the view model keeps the previewed file's text (`PreviewFileText`, set by `
 
 Verified: 4 new regression tests (file enables Copy and copies its text; Copy for CLAUDE.md wraps the file's text; Save As writes the file's text, suggests the file's name, and leaves `OutputName` alone; a generate replaces the file as the current document) plus the updated file-toggle test. Suite: 209 Core + 161 App + 98 Cli = 468 passed, build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished.
 
+### Post-plan addition — Close file button (requested by the human, 2026-11-05)
+
+A `Close file` toolbar button (next to `Open MD...`, enabled only while a file is the current document) ends the opened-file document: the preview hides, the file context clears, and the view returns to the empty state or the generated output's source view with status `file closed`. Documented in `PRD.md` §6 ("Opened files as documents"); the reference had no equivalent — its only close path also discarded the generated output's toggle state.
+
+Verified: 2 new tests (close from a bare file returns to the empty state; close over an existing generated output returns to its source view). Suite: 209 Core + 163 App + 98 Cli = 470 passed, build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.

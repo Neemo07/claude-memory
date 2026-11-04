@@ -278,6 +278,9 @@
                         <Button Margin="6,0,0,0" Content="Open MD..."
                                 Command="{Binding OpenMarkdownCommand}"
                                 AutomationProperties.Name="Open a markdown file" />
+                        <Button Margin="6,0,0,0" Content="Close file"
+                                Command="{Binding CloseFileCommand}"
+                                AutomationProperties.Name="Close the opened markdown file" />
                         <Button Margin="6,0,0,0" Content="Copy" Command="{Binding CopyCommand}"
                                 AutomationProperties.Name="Copy output" />
                         <Button Margin="6,0,0,0" Content="Save As..."

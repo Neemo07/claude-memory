@@ -597,6 +597,49 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public void Closing_an_opened_file_returns_to_the_empty_state()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Opened\n");
+
+        var model = NewModel();
+        model.OpenMarkdownPath(path);
+
+        Assert.True(model.CloseFileCommand.CanExecute(null));
+
+        model.CloseFileCommand.Execute(null);
+
+        Assert.False(model.PreviewIsFile);
+        Assert.False(model.PreviewVisible);
+        Assert.False(model.ShowSourceView);
+        Assert.True(model.ShowEmptyState);
+        Assert.Equal("", model.SourceText);
+        Assert.Equal("", model.PreviewFileName);
+        Assert.Equal("file closed", model.StatusMessage);
+        Assert.Equal(StatusKind.Ok, model.StatusKind);
+        Assert.False(model.CloseFileCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Closing_an_opened_file_returns_to_the_generated_output()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "README.md");
+        File.WriteAllText(path, "# Opened\n");
+        var model = NewModel(PipelineReturning("# Memory\n"));
+        await model.GenerateAsync();
+        model.OpenMarkdownPath(path);
+
+        model.CloseFileCommand.Execute(null);
+
+        Assert.False(model.PreviewIsFile);
+        Assert.False(model.PreviewVisible);
+        Assert.True(model.ShowSourceView);
+        Assert.Equal("# Memory\n", model.SourceText);
+    }
+
+    [Fact]
     public void Copy_for_claude_md_wraps_an_opened_files_text()
     {
         using var temp = new TempDirectory();
