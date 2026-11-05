@@ -1,7 +1,8 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds dist\ClaudeMemory-Setup.msi: a per-user installer for the app and CLI.
+    Builds dist\ClaudeMemory-Setup.msi and dist\ClaudeMemory-Setup.exe: per-user
+    installers for the app and CLI.
 
 .DESCRIPTION
     Runs tools\publish.ps1 (self-contained, compressed, single-file win-x64) and then
@@ -10,11 +11,16 @@
 
         dotnet tool install --global wix --version 6.0.2
 
-    (WiX 7 requires accepting a paid maintenance-fee EULA; 6.0.2 is MIT and pinned.)
+    (WiX 7 requires accepting a paid maintenance-fee EULA; the 6.0.2 tool is MIT and
+    pinned. The BootstrapperApplications extension package used for the .exe
+    installer ships under the Open Source Maintenance Fee EULA - free for users who
+    do not generate revenue with it; see PRD section 11.)
 
-    The MSI needs no elevation: files go to %LOCALAPPDATA%\Programs\claude-memory,
-    the Start Menu shortcut is per-user, and the uninstall entry is written under
-    HKCU (PRD §11 forbids machine-wide/HKLM registration).
+    Nothing here needs elevation: files go to %LOCALAPPDATA%\Programs\claude-memory
+    and the Start Menu shortcut is per-user. The package authors no HKLM content;
+    the Windows Installer service itself writes the standard uninstall entry under
+    HKLM for every MSI (OS behavior, documented in the PRD), while the .exe
+    bootstrapper registers its own uninstall entry under HKCU.
 
     Run from the repository root:
 
@@ -72,4 +78,42 @@ if ($LASTEXITCODE -ne 0) {
     throw "wix build failed (exit $LASTEXITCODE)."
 }
 
-Write-Host ('installer {0} (version {1})' -f $msi, $appVersion)
+# 4. Wrap the MSI in a Burn bootstrapper: dist\ClaudeMemory-Setup.exe.
+#    The standard bootstrapper application lives in the BootstrapperApplications
+#    extension. `wix extension add` is not used (it fails silently on some
+#    machines); instead the pinned NuGet package is fetched once and its
+#    extension DLL is passed to wix build by path, which needs no global state.
+$balVersion = '6.0.2'
+$balCache = Join-Path $env:TEMP 'claude-memory-wixext'
+$balDll = Join-Path $balCache "ba\$balVersion\wixext6\WixToolset.BootstrapperApplications.wixext.dll"
+if (-not (Test-Path -LiteralPath $balDll)) {
+    Remove-Item $balCache -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path (Join-Path $balCache "ba\$balVersion") | Out-Null
+    $zip = Join-Path $balCache 'bootstrapperapplications.zip'
+    Invoke-WebRequest `
+        -Uri "https://api.nuget.org/v3-flatcontainer/wixtoolset.bootstrapperapplications.wixext/$balVersion/wixtoolset.bootstrapperapplications.wixext.$balVersion.nupkg" `
+        -OutFile $zip -TimeoutSec 120
+    Expand-Archive -Path $zip -DestinationPath (Join-Path $balCache "ba\$balVersion") -Force
+}
+if (-not (Test-Path -LiteralPath $balDll)) {
+    throw "BootstrapperApplications extension dll is missing: $balDll"
+}
+
+$setupExe = Join-Path $repo 'dist\ClaudeMemory-Setup.exe'
+$bundleWxs = Join-Path $PSScriptRoot 'installer\Bundle.wxs'
+$licenseRtf = Join-Path $PSScriptRoot 'installer\license.rtf'
+wix build `
+    -arch x64 `
+    -ext $balDll `
+    -d "AppVersion=$appVersion" `
+    -d "AppIconSource=$appIcon" `
+    -d "LicenseRtf=$licenseRtf" `
+    -d "MsiSource=$msi" `
+    -out $setupExe `
+    $bundleWxs
+if ($LASTEXITCODE -ne 0) {
+    throw "wix bundle build failed (exit $LASTEXITCODE)."
+}
+
+Remove-Item (Join-Path $repo 'dist\ClaudeMemory-Setup.wixpdb') -Force -ErrorAction SilentlyContinue
+Write-Host ('installer {0} + bootstrapper {1} (version {2})' -f $msi, $setupExe, $appVersion)

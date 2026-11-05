@@ -34,7 +34,9 @@ dotnet run --project src/ClaudeMemory.Cli -c Debug -- --root tests/fixtures/fixt
 Distribution (Windows only): `powershell -File tools\publish.ps1` publishes one
 self-contained single-file exe per target into `dist\`; `powershell -File
 tools\build-installer.ps1` publishes and then builds `dist\ClaudeMemory-Setup.msi`
-(needs WiX once: `dotnet tool install --global wix --version 6.0.2`).
+and `dist\ClaudeMemory-Setup.exe` (needs WiX once:
+`dotnet tool install --global wix --version 6.0.2`; the bootstrapper extension
+is fetched from NuGet into %TEMP% on first run).
 
 A change is not done until the build and the relevant tests have actually been run and the output was observed. Say which commands ran and what they printed.
 

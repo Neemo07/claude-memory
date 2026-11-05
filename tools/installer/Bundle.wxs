@@ -1,0 +1,36 @@
+<!-- Burn bootstrapper (setup.exe) for claude-memory (PRD §11): wraps the per-user
+     MSI in a single .exe with a license/Install/progress UI. No elevation: the
+     chain is one per-user MSI, and the engine registers its own uninstall entry
+     under HKCU. The MSI is passed ARPSYSTEMCOMPONENT=1 so its own Programs and
+     Features entry stays hidden while installed by this bundle; a direct
+     install of the bare MSI keeps its entry visible. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
+
+  <!-- Id is the v6 upgrade family ("use instead of UpgradeCode"); ProviderKey
+       pins the HKCU uninstall key and dependency registration across rebuilds
+       (without it WiX generates a fresh GUID per build, orphaning the old
+       entry). Both are verified live: two builds with the same authored Id but
+       no ProviderKey produced different registration keys. -->
+  <Bundle
+      Id="claude_memory_bundle"
+      Name="claude-memory"
+      Manufacturer="claude-memory"
+      Version="$(AppVersion)"
+      ProviderKey="{fdd90b1b-ae22-4876-96e7-4a516e675625}"
+      IconSourceFile="$(AppIconSource)">
+
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication
+          Theme="rtfLicense"
+          LicenseFile="$(LicenseRtf)"
+          ShowVersion="yes" />
+    </BootstrapperApplication>
+
+    <Chain>
+      <MsiPackage SourceFile="$(MsiSource)" Compressed="yes">
+        <MsiProperty Name="ARPSYSTEMCOMPONENT" Value="1" />
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>
