@@ -6,6 +6,7 @@
         xmlns:w2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="claude-memory"
+        Icon="app.ico"
         Height="860" Width="1280" MinHeight="600" MinWidth="900"
         Background="{StaticResource WindowBrush}"
         WindowStartupLocation="CenterScreen">

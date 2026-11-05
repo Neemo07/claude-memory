@@ -33,7 +33,7 @@ Secondary: the same user on another machine, using the published build without P
 - No editing Markdown in the preview (read-only).
 - No web version, mobile version, or local HTTP server.
 - No silent takeover of the `.md` default. Windows does not support it, and the app must not fight the OS.
-- No installer with machine-wide (HKLM) registration.
+- No installer-authored machine-wide (HKLM) registration: the MSI is per-user and needs no elevation. The Windows Installer service itself writes the standard uninstall entry under `HKLM\...\Uninstall` — this is engine behavior for every MSI, per-user or not; the package authors no HKLM content of its own.
 - No plugin system, themes marketplace, or custom CSS editor.
 - No macOS/Linux build.
 
@@ -165,7 +165,10 @@ Window title: `claude-memory`. Minimum size 900×600, default 1280×860.
 
 ## 11. Compatibility and distribution
 
-- .NET 8 LTS, `win-x64`, self-contained folder publish under `dist/ClaudeMemory/`.
+- .NET 8 LTS, `win-x64`, self-contained single-file publish under `dist/`: each target ships as exactly one compressed executable (`dist/ClaudeMemory/ClaudeMemory.exe`, `dist/ClaudeMemory.Cli/ClaudeMemory.Cli.exe`). Native libraries (WebView2Loader.dll) self-extract to a temp folder at first run; no trimming (unsupported for WPF).
+- `tools\publish.ps1` produces the single-file executables; `tools\build-installer.ps1` publishes and then packages them into `dist\ClaudeMemory-Setup.msi` (WiX, pinned `dotnet tool install --global wix --version 6.0.2`; WiX 7 requires a paid EULA).
+- The MSI is per-user: installs to `%LOCALAPPDATA%\Programs\claude-memory`, per-user Start Menu shortcut, no elevation, same-version upgrades allowed (rebuilds ship the same version with a new commit hash). Uninstall removes the files, the shortcut, and the service's registry entries.
+- App and shortcut icon: multi-size `.ico` generated from the source `icon.jpg` (16–256 px), embedded via `ApplicationIcon` in both executables and referenced by the MSI's Add/Remove-Programs icon.
 - WebView2 Evergreen Runtime required for preview; source view and generation work without it.
 - Long paths enabled via application manifest.
 - No Python, pip, pywebview, or tkinter dependency in the shipped app.

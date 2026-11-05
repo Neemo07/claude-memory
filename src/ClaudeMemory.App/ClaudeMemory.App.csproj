@@ -7,6 +7,7 @@
     <AssemblyName>ClaudeMemory</AssemblyName>
     <RootNamespace>ClaudeMemory.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <Version>2.0.0</Version>
     <AssemblyVersion>2.0.0.0</AssemblyVersion>
     <FileVersion>2.0.0.0</FileVersion>
@@ -16,6 +17,8 @@
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.5.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <!-- Same icon as the Win32 ApplicationIcon, as a WPF resource for Window.Icon. -->
+    <Resource Include="app.ico" />
   </ItemGroup>
 
   <ItemGroup>

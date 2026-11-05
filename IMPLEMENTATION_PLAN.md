@@ -398,6 +398,20 @@ Fix: `MainWindow` gained `UpdatePreview()` (the push guarded by the host/visible
 
 Verified: the probe reports `RESULT=rendered` with the fix (body text contains the document) and `RESULT=BLANK` with the re-push call disabled (A/B proof). Suite: 218 Core + 163 App + 98 Cli = 479 passed, build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished. Manual check for the human: restart `dist\ClaudeMemory\ClaudeMemory.exe` and double-click a Markdown file in Explorer — the preview should render immediately.
 
+### Post-plan change — single-file publish and a per-user MSI installer (2026-11-05)
+
+The human asked for the program as one file, plus an installer.
+
+Single-file publish (`tools/publish.ps1`): each target now publishes exactly one compressed executable — `PublishSingleFile=true`, `IncludeNativeLibrariesForSelfExtract=true` (carries WebView2Loader.dll, extracted to temp at first run), `EnableCompressionInSingleFile=true`, `DebugType=none` and `AllowedReferenceRelatedFileExtensions=none` (without the latter, WebView2's XML docs leaked next to the exe). Sizes: app 69.8 MB, CLI 34.1 MB. Smoke-tested: the CLI lists a fixture root (exit 0) and the app launches and stays up.
+
+Installer (`tools/installer/Package.wxs` + `tools/build-installer.ps1`): a per-user MSI built with WiX, pinned as a user-local dotnet tool (`dotnet tool install --global wix --version 6.0.2` — WiX 7 requires accepting a paid maintenance-fee EULA, so 6.0.2 is the last MIT release). The MSI embeds both executables (`EmbedCab="yes"` — the first build produced a 36 KB MSI with a 92 MB external `cab1.cab` beside it), installs to `%LOCALAPPDATA%\Programs\claude-memory`, creates a per-user Start Menu shortcut (HKCU key path, per the project's registry rules), needs no elevation, and allows same-version upgrades (`AllowSameVersionUpgrades`, because rebuilds ship the same version with a new commit hash).
+
+Icon: the human added `icon.jpg` (532×559). A throwaway GDI+ script center-crops it and writes a multi-size `app.ico` (16–256 px PNG entries) into both app and CLI projects; `ApplicationIcon` embeds it in the executables, `Window.Icon` shows it in the title bar, and the MSI references it for Programs and Features. A trap found on the way: pointing the WiX `Icon` element at the .exe made WiX embed the entire 70 MB executable as the icon stream (MSI grew from 92 to 162 MB); the Icon element must get the small `.ico`.
+
+Per-user context (live-tested on the target machine): `Scope="perUser"` alone, `ALLUSERS=2 + MSIINSTALLPERUSER=1`, and ALLUSERS-absent all install without elevation and behave identically, because the log shows `MSIINSTALLPERUSER property is not valid for UAC compliant package. Ignoring`. The Windows Installer service writes its standard uninstall entry under `HKLM\...\Uninstall` in every case — verified against another per-user MSI on the same machine, which carries the same HKLM entry. No MSI can avoid that key, so the PRD's non-goal was reworded (§3) and the distribution section documents it (§11): the package authors no HKLM content; the engine's uninstall entry is OS behavior.
+
+Verified: silent install from an isolated copy of the MSI → both executables in place with the embedded icon, Start Menu shortcut present, app launches; same-version reinstall exit 0; uninstall exit 0 removes the files, the shortcut folder, and the registry entries (nothing left behind). Suite unchanged at 479 passed; build 0 warnings/0 errors with `-warnaserror`. Manual checks for the human: double-click `dist\ClaudeMemory-Setup.msi` (UAC prompt should not appear), check the Start Menu tile icon and the window title-bar icon at actual size.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.

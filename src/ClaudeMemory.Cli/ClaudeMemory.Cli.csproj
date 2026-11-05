@@ -5,6 +5,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>ClaudeMemory.Cli</AssemblyName>
     <RootNamespace>ClaudeMemory.Cli</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 

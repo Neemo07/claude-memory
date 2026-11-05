@@ -1,0 +1,84 @@
+﻿<!-- Per-user MSI for claude-memory (PRD §11). Installs the two self-contained
+     single-file executables into %LOCALAPPDATA%\Programs\claude-memory with a
+     per-user Start Menu shortcut, without elevation. The package authors no HKLM
+     content; the Windows Installer service itself writes the standard uninstall
+     entry under HKLM\...\Uninstall, as it does for every MSI (documented in the
+     PRD). Scope=perUser is declarative: WiX emits no ALLUSERS property, which
+     makes this a classic per-user install. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package
+      Name="claude-memory"
+      Manufacturer="claude-memory"
+      Version="$(AppVersion)"
+      UpgradeCode="95fdd770-18eb-4176-81fd-f3ae20e6f966"
+      Scope="perUser"
+      Compressed="yes">
+
+    <!-- Per-user MSI (PRD §11: no machine-wide/HKLM registration authored by this
+         package; no elevation required). ALLUSERS is deliberately absent: the classic
+         per-user install. MSIINSTALLPERUSER is ignored for UAC-compliant packages and
+         an explicit ALLUSERS=2 still resolved to a machine-context ARP entry in live
+         tests (2026-11-05). -->
+    <MajorUpgrade
+        AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer version of claude-memory is already installed." />
+
+    <!-- Compress everything into the .msi itself: one file to ship. -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- One sentence in Programs and Features (HKCU for per-user installs). -->
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.exe" />
+    <Icon Id="AppIcon.exe" SourceFile="$(AppIconSource)" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsDir" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="claude-memory">
+          <Component Id="AppExe" Guid="e356dc55-eb18-438a-87a6-0d53ac9ee64f">
+            <File Id="ClaudeMemoryExe"
+                Name="ClaudeMemory.exe"
+                Source="!(bindpath.app)\ClaudeMemory.exe"
+                KeyPath="yes" />
+          </Component>
+          <Component Id="CliExe" Guid="6a6dd810-e678-4655-aaae-18f0405149b4">
+            <File Id="ClaudeMemoryCliExe"
+                Name="ClaudeMemory.Cli.exe"
+                Source="!(bindpath.cli)\ClaudeMemory.Cli.exe"
+                KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuDir" Name="claude-memory">
+        <Component Id="AppShortcut" Guid="d12700d2-8686-4b6c-8fc7-6d00da982115">
+          <!-- Per-user shortcut: HKCU key path, no HKLM anywhere (AGENTS.md rules). -->
+          <Shortcut
+              Id="ClaudeMemoryShortcut"
+              Name="claude-memory"
+              Description="Turn Claude Code transcripts into paste-ready memory"
+              Target="[INSTALLFOLDER]ClaudeMemory.exe"
+              WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="RemoveAppMenuDir" On="uninstall" />
+          <RegistryValue
+              Root="HKCU"
+              Key="Software\claude-memory\installer"
+              Name="startmenu-shortcut"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main">
+      <ComponentRef Id="AppExe" />
+      <ComponentRef Id="CliExe" />
+      <ComponentRef Id="AppShortcut" />
+    </Feature>
+
+  </Package>
+
+</Wix>
