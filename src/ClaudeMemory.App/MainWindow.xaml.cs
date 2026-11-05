@@ -89,6 +89,8 @@ public partial class MainWindow : Window
             Preview.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
 
             _model.SetPreviewHostAvailable(true);
+            // A shell-open can land before the host existed; push the pending document now.
+            UpdatePreview();
         }
         catch (Exception)
         {
@@ -98,11 +100,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Shows the latest built document, or clears the host when the preview closes. The flag
-    /// keeps a <c>NavigationStarting</c> from our own <c>NavigateToString</c> from being treated
-    /// as a user navigation.
-    /// </summary>
+    /// <summary>Reacts to preview changes by pushing the latest document into the host.</summary>
     private void OnModelChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(MainViewModel.PreviewHtml)
@@ -111,6 +109,17 @@ public partial class MainWindow : Window
             return;
         }
 
+        UpdatePreview();
+    }
+
+    /// <summary>
+    /// Shows the latest built document. When a shell-open arrives before the WebView2 host
+    /// finished initializing this drops out on the null check — the host pushes the pending
+    /// document itself once <c>EnsureCoreWebView2Async</c> completes (post-plan fix,
+    /// 2026-11-05: Explorer opens showed an empty preview until the toggle was pressed).
+    /// </summary>
+    private void UpdatePreview()
+    {
         if (Preview.CoreWebView2 is null) return;
         if (!_model.PreviewVisible) return;
         if (_model.PreviewHtml.Length == 0) return;

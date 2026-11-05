@@ -388,6 +388,16 @@ Second bug found on the way, caught by diffing curl's own `-v` traces: `HttpHead
 
 Verified: the product `ShareClient` fetched the human's real link (200, 13 root JSON properties); the published `ClaudeMemory.Cli.exe --share <link> --out <temp>\MEMORY.md` imported 6 messages and wrote the file (one transient 403 absorbed by the reference retry loop, exactly the documented behavior). Suite: 218 Core + 163 App + 98 Cli = 479 passed (7 new curl tests), build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished.
 
+### Post-plan fix — Explorer opens showed an empty preview until the toggle was pressed (reported by the human, 2026-11-05)
+
+Symptom: with claude-memory as the default Markdown handler, double-clicking a file in Explorer opened the window with an empty preview; pressing "Show source" and switching back to preview made the document appear.
+
+Diagnosis: a throwaway probe built the real `MainWindow` in the real startup order and called `OpenFromShell` in the same dispatcher frame. The open itself succeeded (model showed `visible=True isFile=True htmlLength>0`) but the WebView2 host was still initializing (`CoreWebView2` null), so `OnModelChanged` dropped the `NavigateToString` push — and nothing re-pushed it once `EnsureCoreWebView2Async` finished. The probe also surfaced a trap for future testing: `EnsureCoreWebView2Async` throws `InvalidOperationException` when called before the application event loop runs, so a probe must construct the window inside `Dispatcher.InvokeAsync` the way `Application.OnStartup` does.
+
+Fix: `MainWindow` gained `UpdatePreview()` (the push guarded by the host/visible/html checks); `OnModelChanged` calls it, and `InitialisePreview` calls it right after `SetPreviewHostAvailable(true)`, so the pending shell-opened document is pushed the moment the host exists. No view-model change; the earlier `IsSelfNavigation` guard is untouched.
+
+Verified: the probe reports `RESULT=rendered` with the fix (body text contains the document) and `RESULT=BLANK` with the re-push call disabled (A/B proof). Suite: 218 Core + 163 App + 98 Cli = 479 passed, build 0 warnings/0 errors with `-warnaserror`, both `dist` folders republished. Manual check for the human: restart `dist\ClaudeMemory\ClaudeMemory.exe` and double-click a Markdown file in Explorer — the preview should render immediately.
+
 ## 5. Test strategy
 
 - **Unit:** parsing, text utilities, heuristics, budget, path policy, history, registry store, IPC.
